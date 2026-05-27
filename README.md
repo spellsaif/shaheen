@@ -68,7 +68,7 @@ While the official JavaScript SDKs work beautifully in browser environments, int
 4. **Rust Handshake**: The Rust engine opens a local loopback TCP connection to the wallet's WebSocket server. It exchanges P-256 public keys via plaintext `HELLO` frames.
 5. **Key Agreement**: Rust derives an encryption key using **Diffie-Hellman (ECDH)** and **HKDF-SHA256**.
 6. **Encrypted RPC**: Rust wraps the `authorize` and `sign_transactions` payloads inside **AES-128-GCM** envelopes, using increasing sequence numbers as AAD (Additional Authenticated Data) to protect against injection/replay attacks.
-7. **Return**: The signed transaction is received by Rust, deserialized to verify validity, and the signature is returned up to the JSI thread. C++ JSI copies the signature into a JS String and immediately calls `rust_free_string` to release the native memory safely.
+7. **Return**: The signed transaction is received by Rust, decoded, and both the signature and the updated signed transaction hex string are returned to the JavaScript layer. C++ JSI copies the strings to resolve the JS Promise and immediately releases the native memory safely.
 
 ---
 
@@ -120,7 +120,7 @@ ndk.dir=/path/to/your/android-sdk/ndk/version
 ### Strategy 1: Standalone Mode (Pure `shaheen`)
 * **Best for**: Brand new dApps, mobile games, or lightweight applications.
 * **How it works**: You import the hook `useShaheenWallet` directly and pass a serialized transaction hex.
-* **Performance Benefit**: You **do not need to install global node-shims**. Your JavaScript bundle size is virtually zero, and your app has absolutely no dependency on Node shims.
+* **Performance Benefit**: You **do not need to install @solana/wallet-adapter-react** or configure global Node-shims (like `Buffer` or `crypto` polyfills) in your app's entry points. The native bridge remains completely shim-free.
 
 ### Strategy 2: Ecosystem Bridge Mode
 * **Best for**: Upgrading existing projects already built around the standard Solana React Hook system.
@@ -213,8 +213,8 @@ export default function App() {
 `shaheen` achieves massive speedups by leveraging hardware-level acceleration and memory optimizations:
 
 * **Hardware Crypto Acceleration**: The `aes-gcm` crate compiles down to use **ARM NEON** and **AES-NI** CPU assembly instructions directly on Apple Silicon (M1/M2/A-series chips) and Android ARM64 devices. Encryption takes **less than 5 microseconds**.
-* **Zero JSI String Copies**: Program keys and instructions are parsed straight out of the Hermes VM heap via JSI references. We avoid stringifying JSON or converting arrays inside JavaScript, bypassing garbage collection pauses.
-* **Native Thread Offloading**: While C++ JSI methods execute synchronously on the JavaScript thread, network operations are immediately dispatched to background worker pools (GCD on iOS, native threads on Android), maintaining a smooth **120Hz display refresh rate**.
+* **Direct JSI Pass-through**: Ephemeral parameters (like transaction hex strings and auth tokens) are passed directly across the JS-to-C++ boundary using direct memory handles. We avoid heavy JSON serialization overhead on the JS side, bypassing standard React Native bridge bottlenecks.
+* **Native Thread Offloading**: The JSI methods return a JavaScript Promise and offload all network socket operations and cryptographic exchanges to native background threads (Java Thread on Android, Dispatch Queue on iOS). The Hermes JS runtime thread remains completely free and responsive, maintaining a smooth **120Hz display refresh rate**.
 
 ---
 
