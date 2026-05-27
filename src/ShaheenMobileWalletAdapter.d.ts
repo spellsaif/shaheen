@@ -8,6 +8,7 @@ export declare class ShaheenMobileWalletAdapter extends BaseSignerWalletAdapter 
     readyState: WalletReadyState;
     supportedTransactionVersions: Set<0 | "legacy">;
     private _publicKey;
+    private _authToken;
     private _connecting;
     constructor();
     get publicKey(): PublicKey | null;

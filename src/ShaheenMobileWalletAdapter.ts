@@ -1,9 +1,7 @@
 import { BaseSignerWalletAdapter, WalletName, WalletReadyState } from '@solana/wallet-adapter-base';
 import { PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
-import { executeTransactionSync } from './index';
-
-declare var Buffer: any;
-declare var atob: any;
+import { Linking } from 'react-native';
+import ShaheenModule from './NativeShaheenSpec';
 
 export const ShaheenWalletName = 'Solana Mobile (Shaheen)' as WalletName<'Solana Mobile (Shaheen)'>;
 
@@ -11,6 +9,12 @@ function toHexString(byteArray: Uint8Array): string {
   return Array.from(byteArray, (byte) => {
     return ('0' + (byte & 0xFF).toString(16)).slice(-2);
   }).join('');
+}
+
+function fromHexString(hexString: string): Uint8Array {
+  const matches = hexString.match(/.{1,2}/g);
+  if (!matches) return new Uint8Array(0);
+  return new Uint8Array(matches.map((byte) => parseInt(byte, 16)));
 }
 
 export class ShaheenMobileWalletAdapter extends BaseSignerWalletAdapter {
@@ -21,6 +25,7 @@ export class ShaheenMobileWalletAdapter extends BaseSignerWalletAdapter {
   supportedTransactionVersions = new Set(['legacy', 0] as const);
 
   private _publicKey: PublicKey | null = null;
+  private _authToken: string | null = null;
   private _connecting = false;
 
   constructor() {
@@ -42,7 +47,17 @@ export class ShaheenMobileWalletAdapter extends BaseSignerWalletAdapter {
   async connect(): Promise<void> {
     try {
       this._connecting = true;
-      this._publicKey = new PublicKey("37G1P7u13aJjTq5Z9sFzD36Pq7S9A4xY3vU1M4A5B");
+      
+      const assoc = await ShaheenModule.generateAssociationUri();
+      await Linking.openURL(assoc.uri);
+      
+      const authResult = await ShaheenModule.connectAndAuthorize('mainnet-beta', assoc.port);
+      if (!authResult.success) {
+        throw new Error(`Shaheen Native Authorization Error: ${authResult.error}`);
+      }
+      
+      this._publicKey = new PublicKey(authResult.publicKey);
+      this._authToken = authResult.authToken;
       this.emit('connect', this._publicKey);
     } catch (e: any) {
       this.emit('error', e);
@@ -54,61 +69,34 @@ export class ShaheenMobileWalletAdapter extends BaseSignerWalletAdapter {
 
   async disconnect(): Promise<void> {
     this._publicKey = null;
+    this._authToken = null;
     this.emit('disconnect');
   }
 
   async signTransaction<T extends Transaction | VersionedTransaction>(transaction: T): Promise<T> {
-    if (!this.connected) throw new Error('Wallet not connected');
+    if (!this.connected || !this._authToken) throw new Error('Wallet not connected');
 
     const tx = transaction as any;
-    
-    // For VersionedTransaction, we retrieve instructions from the message
-    const instruction = tx.instructions ? tx.instructions[0] : tx.message?.compiledInstructions?.[0];
-    if (!instruction) {
-      throw new Error('No instructions found in transaction');
-    }
+    const isVersioned = 'version' in tx;
+    const txBytes = isVersioned 
+      ? tx.serialize() 
+      : tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+    const txHex = toHexString(txBytes);
 
-    // Extract keys list safely
-    let keys = [];
-    if (instruction.keys) {
-      keys = instruction.keys.map((k: any) => ({
-        pubkey: k.pubkey.toBase58(),
-        isSigner: k.isSigner,
-        isWritable: k.isWritable
-      }));
-    } else if (tx.message?.staticAccountKeys) {
-      // Versioned transaction fallback mapping
-      const accountKeys = tx.message.staticAccountKeys;
-      keys = instruction.accountKeyIndexes.map((idx: number) => ({
-        pubkey: accountKeys[idx].toBase58(),
-        isSigner: tx.message.isAccountSigner(idx),
-        isWritable: tx.message.isAccountWritable(idx)
-      }));
-    }
+    const assoc = await ShaheenModule.generateAssociationUri();
+    await Linking.openURL(assoc.uri);
 
-    const programId = instruction.programId ? instruction.programId.toBase58() : tx.message.staticAccountKeys[instruction.programIdIndex].toBase58();
-    
-    // Hex encode data payload without Node.js Buffer reliance
-    const dataHex = instruction.data ? toHexString(new Uint8Array(instruction.data)) : toHexString(new Uint8Array(instruction.data));
-
-    const result = executeTransactionSync('mainnet-beta', {
-      programId,
-      keys,
-      dataHex
-    });
-
+    const result = await ShaheenModule.connectAndSign('mainnet-beta', assoc.port, txHex, this._authToken);
     if (!result.success) {
       throw new Error(`Shaheen Native Signing Error: ${result.error}`);
     }
 
-    const sigStr = atob(result.signature);
-    const signature = new Uint8Array(sigStr.length);
-    for (let i = 0; i < sigStr.length; i++) {
-      signature[i] = sigStr.charCodeAt(i);
-    }
-    tx.addSignature(this._publicKey!, Buffer.from(signature));
-    
-    return transaction;
+    const signedTxBytes = fromHexString(result.signedTxHex);
+    const signedTx = isVersioned 
+      ? VersionedTransaction.deserialize(signedTxBytes) 
+      : Transaction.from(signedTxBytes);
+
+    return signedTx as T;
   }
 
   async signAllTransactions<T extends Transaction | VersionedTransaction>(transactions: T[]): Promise<T[]> {
