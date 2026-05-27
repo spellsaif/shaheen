@@ -1,0 +1,12 @@
+appId: com.example.dapp # Change to your dApp's bundle identifier
+---
+- launchApp
+- tapOn: "Connect Wallet"
+- assertVisible: "Select a Wallet"
+- tapOn: "Solana Association Wallet" # Selects MWA association provider
+# Maestro automatically handles cross-app intent switching to Fake Wallet
+- assertVisible: "Authorize Session"
+- tapOn: "Approve"
+# Focus returns back to the dApp app
+- assertVisible: "Wallet Connected"
+- assertVisible: "Transaction Signed Successfully"
