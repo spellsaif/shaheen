@@ -1,6 +1,6 @@
-# 🦅 shaheen: The Polyfill-Free Solana Mobile Wallet Adapter
+# ✨ shaheen: High-Performance, Shim-Free Solana Mobile Wallet Adapter SDK for React Native
 
-> **`shaheen`** (Arabic/Persian for *royal peregrine falcon*) is a lightning-fast, zero-polyfill React Native library designed to connect mobile dApps to the Solana Mobile Wallet Adapter (MWA) protocol using cross-compiled Rust and C++ JSI.
+> **`shaheen`** is an optimized, zero-shim React Native client that implements the official Solana Mobile Wallet Adapter (MWA) protocol specification. By offloading the cryptographic handshakes and WebSocket communication defined by the protocol to a native Rust engine accessed via C++ JSI, `shaheen` replaces the standard JavaScript library implementations to eliminate the need for global shims and keep the JS thread fully responsive.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Compiler](https://img.shields.io/badge/Rust-2021-orange.svg)](https://www.rust-lang.org/)
@@ -9,34 +9,21 @@
 
 ---
 
-## 💡 The Problem: The "Polyfill Tax" of Mobile Web3
+## 💡 The Context: Optimizing React Native Web3
 
-Developing Solana dApps in React Native has historically felt like trying to fly a falcon with lead weights tied to its talons. 
+The **Solana Mobile Wallet Adapter (MWA)** is the industry-standard foundation of the Solana mobile ecosystem, enabling secure inter-app communication between mobile dApps and wallets. 
 
-Standard Solana JavaScript SDKs are written for Web browsers and Node.js. They rely heavily on Node built-ins: `Buffer`, `crypto`, `stream`, and `path`. Because React Native doesn't have these, developers are forced to pay the **Polyfill Tax**:
+While the official JavaScript SDKs work beautifully in browser environments, integrating them into React Native apps historically required developers to configure global Node.js shims (like patching `global.Buffer` or `global.crypto` with external npm packages). Additionally, running CPU-intensive cryptographic operations (P-256 ECDH and AES-GCM) directly on the single-threaded JavaScript virtual machine (Hermes) can block rendering. This might cause micro-stuttering on high-refresh-rate displays.
 
-1. **Scope Pollution**: You are forced to patch your environment by injecting global variables at the top of `index.js`:
-   ```javascript
-   global.Buffer = require('buffer').Buffer;
-   global.crypto = require('react-native-get-random-values');
-   ```
-2. **UI Thread Freeze (Stutter)**: Performing complex cryptographic handshakes (like P-256 ECDH and AES-GCM encryption) inside the single-threaded JavaScript virtual machine (Hermes) blocks rendering. This causes noticeable frame drops, making high-end 120Hz screens stutter.
-3. **Security Risks**: Relying on nested, un-audited npm shims for core randomness (`getrandom`) introduces massive supply-chain attack vectors.
-4. **App Bloat**: Your bundle size swells with megabytes of browser emulation code, increasing cold startup latency.
+`shaheen` solves these specific React Native integration challenges by:
+
+1. **Eliminating Global Polyfills**: The core cryptographic handshake and WebSocket communication are handled natively in Rust. Your JavaScript environment remains completely clean.
+2. **Offloading CPU-Intensive Tasks**: Cryptography and networking run in native background threads (Java Thread on Android, Dispatch Queue on iOS), leaving the Hermes JS thread completely unblocked.
+3. **Optimizing Memory Transfers**: Payload parameters (such as public keys, transaction hex strings, and auth tokens) are copied directly across the boundary using C++ JSI memory references, bypassing JSON serialization overhead.
 
 ---
 
-## 🦅 The Shaheen Philosophy: Push it to the Metal
-
-`shaheen` does away with JS shims entirely. 
-
-Instead of emulating a browser inside JavaScript, **`shaheen` delegates 100% of the heavy cryptographic handshakes and socket networking to a pre-compiled native Rust engine**.
-
-We connect this Rust engine directly to the React Native Hermes VM using **C++ JSI (JavaScript Interface)**. Data payloads (like transaction bytes and keys) are passed as raw memory references across the boundary, completely bypassing the slow React Native JSON bridge.
-
----
-
-## 🏗️ Architecture & Data Flow
+## 🏗️ Architecture & Direct JSI Execution
 
 ```
    ┌───────────────────────────────────────────────────────────┐
@@ -63,20 +50,20 @@ We connect this Rust engine directly to the React Native Hermes VM using **C++ J
    │  - Negotiates ECDH Shared Secret                          │
    │  - Derives AES-128 key via HKDF-SHA256                    │
    │  - Encrypts MWA JSON-RPC payloads with AES-128-GCM        │
-   │  - Serializes Solana Instruction to Transaction Bytes     │
+   │  - Deserializes and validates Solana transactions         │
    └─────────────────────────────┬─────────────────────────────┘
                                  │
                                  │  [Local WebSocket Socket]
                                  ▼
    ┌───────────────────────────────────────────────────────────┐
    │                   Solana Mobile Wallet                    │
-   │        (Phantom, Solflare, or Mock Fake Wallet)           │
+   │              (Phantom, Solflare, etc.)                    │
    └───────────────────────────────────────────────────────────┘
 ```
 
 ### The Transaction Life-Cycle:
-1. **Trigger**: Your dApp invokes `executeTransactionSync(...)`.
-2. **JSI Interception**: C++ intercepts the call, reads the program keys and data hex directly from the Hermes heap, and passes raw pointers to the Rust FFI.
+1. **Trigger**: Your dApp invokes `executeTransaction(...)`.
+2. **JSI Interception**: C++ intercepts the call, reads the transaction hex directly from the Hermes heap, and passes raw pointers to the Rust FFI.
 3. **Intent Launch**: The system Intent wakes up the **Solana Mobile Wallet** app on the user's phone.
 4. **Rust Handshake**: The Rust engine opens a local loopback TCP connection to the wallet's WebSocket server. It exchanges P-256 public keys via plaintext `HELLO` frames.
 5. **Key Agreement**: Rust derives an encryption key using **Diffie-Hellman (ECDH)** and **HKDF-SHA256**.
@@ -132,8 +119,8 @@ ndk.dir=/path/to/your/android-sdk/ndk/version
 
 ### Strategy 1: Standalone Mode (Pure `shaheen`)
 * **Best for**: Brand new dApps, mobile games, or lightweight applications.
-* **How it works**: You import the hook `useShaheenWallet` directly and pass raw instruction fields.
-* **Performance Benefit**: You **do not need to install `@solana/web3.js` or `@solana/wallet-adapter-react`**. Your JavaScript bundle size is virtually zero, and your app has absolutely no dependency on Node shims.
+* **How it works**: You import the hook `useShaheenWallet` directly and pass a serialized transaction hex.
+* **Performance Benefit**: You **do not need to install global node-shims**. Your JavaScript bundle size is virtually zero, and your app has absolutely no dependency on Node shims.
 
 ### Strategy 2: Ecosystem Bridge Mode
 * **Best for**: Upgrading existing projects already built around the standard Solana React Hook system.
@@ -150,23 +137,28 @@ ndk.dir=/path/to/your/android-sdk/ndk/version
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useShaheenWallet } from 'shaheen';
+import { Transaction, SystemProgram, PublicKey } from '@solana/web3.js';
 
 export default function StandaloneExample() {
   const { executeTransaction, loading } = useShaheenWallet();
 
   const handleSign = async () => {
-    // Construct the instruction. No web3.js classes required!
-    const instruction = {
-      programId: "Memo1U2x22222222222222222222222222222225", 
-      keys: [
-        { pubkey: "37G1P7u13aJjTq5Z9sFzD36Pq7S9A4xY3vU1M4A5B", isSigner: true, isWritable: true }
-      ],
-      dataHex: "48656c6c6f" // "Hello" in hex
-    };
+    // 1. Construct and serialize the transaction (no global shims/polyfills needed)
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: new PublicKey("37G1P7u13aJjTq5Z9sFzD36Pq7S9A4xY3vU1M4A5B"),
+        toPubkey: new PublicKey("37G1P7u13aJjTq5Z9sFzD36Pq7S9A4xY3vU1M4A5B"),
+        lamports: 1000,
+      })
+    );
+    const txBytes = transaction.serialize({ requireAllSignatures: false, verifySignatures: false });
+    const txHex = Array.from(txBytes, (byte) => ('0' + (byte & 0xFF).toString(16)).slice(-2)).join('');
 
-    const result = await executeTransaction('devnet', instruction);
+    // 2. Execute via Native MWA Bridge
+    const result = await executeTransaction('devnet', txHex);
     if (result.success) {
       console.log("Transaction Signature:", result.signature);
+      console.log("Signed Transaction Hex:", result.signedTxHex);
     } else {
       console.error("Error signing:", result.error);
     }
@@ -178,6 +170,19 @@ export default function StandaloneExample() {
     </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  button: {
+    backgroundColor: '#9932cc',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  text: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+});
 ```
 
 ### 2. Ecosystem Bridge Mode (Strategy 2)
@@ -225,18 +230,15 @@ export default function App() {
 
 `shaheen` is covered by tests at every level of the stack:
 
-### Rust Core Tests (Cryptography & FFI Safety)
-Verify the AES-GCM encryption, ECDH derivation, and null pointer FFI checks:
+### Rust Core Tests (Cryptography, Sockets, & FFI Safety)
+Verify the AES-GCM encryption, ECDH derivation, TCP listener re-use, and loopback E2E handshake:
 ```bash
 cd rust
 cargo test
 ```
 
-### JS/TS Layer Tests (Bridge Mocks)
-Verify the JS React Hooks and JSI mock interfaces:
+### JS/TS Layer Tests (Adapter state & Bridge flows)
+Verify state transitions, association failures, and URL launching:
 ```bash
 npm run test
 ```
-
-### End-to-End UI Automation (Maestro)
-We package a [Maestro test flow](maestro/connect_wallet.yaml) to automate the inter-app launch and signing process on active mobile emulators using Solana's Fake Wallet app.
