@@ -1,0 +1,41 @@
+{
+  "name": "shaheen",
+  "version": "1.0.0",
+  "description": "High-performance, polyfill-free Solana Mobile Wallet Adapter using Rust and JSI",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typescript": "tsc",
+    "test": "jest"
+  },
+  "keywords": [
+    "solana",
+    "react-native",
+    "rust",
+    "jsi",
+    "turbomodule"
+  ],
+  "author": "Developer",
+  "license": "MIT",
+  "peerDependencies": {
+    "@solana/wallet-adapter-base": "*",
+    "@solana/web3.js": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "@solana/wallet-adapter-base": "^0.9.27",
+    "@solana/web3.js": "^1.98.4",
+    "@types/jest": "^29.5.0",
+    "@types/react": "*",
+    "@types/react-native": "*",
+    "jest": "^29.5.0",
+    "react-native": "^0.74.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  },
+  "codegenConfig": {
+    "name": "ShaheenSpec",
+    "type": "modules",
+    "jsSrcsDir": "src"
+  }
+}
