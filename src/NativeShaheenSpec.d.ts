@@ -1,20 +1,23 @@
 import type { TurboModule } from 'react-native';
-export interface ShaheenInstruction {
-    programId: string;
-    keys: Array<{
-        pubkey: string;
-        isSigner: boolean;
-        isWritable: boolean;
-    }>;
-    dataHex: string;
+export interface ShaheenAuthorizeResult {
+    success: boolean;
+    publicKey: string;
+    authToken: string;
+    error: string;
 }
-export interface ShaheenExecutionResult {
+export interface ShaheenSignResult {
     success: boolean;
     signature: string;
+    signedTxHex: string;
     error: string;
 }
 export interface Spec extends TurboModule {
-    connectAndExecute(cluster: string, instruction: ShaheenInstruction): Promise<ShaheenExecutionResult>;
+    generateAssociationUri(): Promise<{
+        uri: string;
+        port: number;
+    }>;
+    connectAndAuthorize(cluster: string, port: number): Promise<ShaheenAuthorizeResult>;
+    connectAndSign(cluster: string, port: number, txHex: string, authToken: string): Promise<ShaheenSignResult>;
 }
 declare const _default: Spec;
 export default _default;
