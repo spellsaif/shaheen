@@ -1,0 +1,23 @@
+[package]
+name = "shaheen_core"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+name = "shaheen_core"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+solana-sdk = { version = "4.0" }
+borsh = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+aes-gcm = "0.10.3"
+rand = { version = "0.8", features = ["getrandom"] }
+p256 = { version = "0.13", features = ["ecdh", "arithmetic"] }
+hkdf = "0.12"
+sha2 = "0.10"
+tungstenite = { version = "0.21", default-features = false, features = ["handshake"] }
+url = "2.5"
+base64 = "0.21"
+bincode = "1.3"
