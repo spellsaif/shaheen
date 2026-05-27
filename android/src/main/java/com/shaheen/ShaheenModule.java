@@ -36,32 +36,50 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void connectAndExecute(String cluster, ReadableMap instruction, Promise promise) {
+    public void generateAssociationUri(Promise promise) {
         new Thread(() -> {
             try {
-                String programId = instruction.getString("programId");
-                String dataHex = instruction.getString("dataHex");
-                ReadableArray keys = instruction.getArray("keys");
-                
-                JSONArray keysJsonArray = new JSONArray();
-                for (int i = 0; i < keys.size(); i++) {
-                    ReadableMap keyMap = keys.getMap(i);
-                    JSONObject keyObj = new JSONObject();
-                    keyObj.put("pubkey", keyMap.getString("pubkey"));
-                    keyObj.put("isSigner", keyMap.getBoolean("isSigner"));
-                    keyObj.put("isWritable", keyMap.getBoolean("isWritable"));
-                    keysJsonArray.put(keyObj);
-                }
-                
-                String keysJson = keysJsonArray.toString();
-                String resultJson = nativeExecuteMwa(cluster, programId, dataHex, keysJson);
-                
+                String resultJson = nativeGenerateAssociation();
+                JSONObject resultObj = new JSONObject(resultJson);
+                WritableMap resultMap = Arguments.createMap();
+                resultMap.putString("uri", resultObj.getString("uri"));
+                resultMap.putInt("port", resultObj.getInt("port"));
+                promise.resolve(resultMap);
+            } catch (Exception e) {
+                promise.reject("error", e.getMessage() != null ? e.getMessage() : "Unknown Native Error");
+            }
+        }).start();
+    }
+
+    @ReactMethod
+    public void connectAndAuthorize(String cluster, int port, Promise promise) {
+        new Thread(() -> {
+            try {
+                String resultJson = nativeAuthorize(cluster);
+                JSONObject resultObj = new JSONObject(resultJson);
+                WritableMap resultMap = Arguments.createMap();
+                resultMap.putBoolean("success", resultObj.getBoolean("success"));
+                resultMap.putString("publicKey", resultObj.getString("publicKey"));
+                resultMap.putString("authToken", resultObj.getString("authToken"));
+                resultMap.putString("error", resultObj.getString("error"));
+                promise.resolve(resultMap);
+            } catch (Exception e) {
+                promise.reject("error", e.getMessage() != null ? e.getMessage() : "Unknown Native Error");
+            }
+        }).start();
+    }
+
+    @ReactMethod
+    public void connectAndSign(String cluster, int port, String txHex, String authToken, Promise promise) {
+        new Thread(() -> {
+            try {
+                String resultJson = nativeSignTransactions(cluster, txHex, authToken);
                 JSONObject resultObj = new JSONObject(resultJson);
                 WritableMap resultMap = Arguments.createMap();
                 resultMap.putBoolean("success", resultObj.getBoolean("success"));
                 resultMap.putString("signature", resultObj.getString("signature"));
+                resultMap.putString("signedTxHex", resultObj.getString("signedTxHex"));
                 resultMap.putString("error", resultObj.getString("error"));
-                
                 promise.resolve(resultMap);
             } catch (Exception e) {
                 promise.reject("error", e.getMessage() != null ? e.getMessage() : "Unknown Native Error");
@@ -70,5 +88,7 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
     }
 
     private native void nativeInstallJSI(long jsContextPointer);
-    private native String nativeExecuteMwa(String cluster, String programId, String dataHex, String keysJson);
+    private native String nativeGenerateAssociation();
+    private native String nativeAuthorize(String cluster);
+    private native String nativeSignTransactions(String cluster, String txHex, String authToken);
 }
