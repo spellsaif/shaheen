@@ -18,20 +18,31 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.useShaheenWallet = useShaheenWallet;
-exports.executeTransactionSync = executeTransactionSync;
+exports.generateAssociationSync = generateAssociationSync;
+exports.authorizeSync = authorizeSync;
+exports.signTransactionsSync = signTransactionsSync;
 const react_1 = require("react");
+const react_native_1 = require("react-native");
 const NativeShaheenSpec_1 = __importDefault(require("./NativeShaheenSpec"));
 __exportStar(require("./ShaheenMobileWalletAdapter"), exports);
 function useShaheenWallet() {
     const [loading, setLoading] = (0, react_1.useState)(false);
-    const executeTransaction = async (cluster, instruction) => {
+    const executeTransaction = async (cluster, txHex) => {
         setLoading(true);
         try {
-            const result = await NativeShaheenSpec_1.default.connectAndExecute(cluster, instruction);
+            const assoc = await NativeShaheenSpec_1.default.generateAssociationUri();
+            await react_native_1.Linking.openURL(assoc.uri);
+            const auth = await NativeShaheenSpec_1.default.connectAndAuthorize(cluster, assoc.port);
+            if (!auth.success) {
+                return { success: false, signature: '', signedTxHex: '', error: auth.error };
+            }
+            const assoc2 = await NativeShaheenSpec_1.default.generateAssociationUri();
+            await react_native_1.Linking.openURL(assoc2.uri);
+            const result = await NativeShaheenSpec_1.default.connectAndSign(cluster, assoc2.port, txHex, auth.authToken);
             return result;
         }
         catch (e) {
-            return { success: false, signature: '', error: e.message || 'Unknown Native Error' };
+            return { success: false, signature: '', signedTxHex: '', error: e.message || 'Unknown Native Error' };
         }
         finally {
             setLoading(false);
@@ -39,26 +50,24 @@ function useShaheenWallet() {
     };
     return { executeTransaction, loading };
 }
-/**
- * Synchronous transaction execution using the C++ JSI direct binding.
- * Intercepts execution synchronously from Hermes runtime memory references.
- */
-function executeTransactionSync(cluster, instruction) {
+function generateAssociationSync() {
     const g = globalThis;
-    if (typeof g.shaheenExecuteSync === 'function') {
-        try {
-            const resultJson = g.shaheenExecuteSync(cluster, instruction);
-            return JSON.parse(resultJson);
-        }
-        catch (e) {
-            return { success: false, signature: '', error: e.message || 'JSI Execution Error' };
-        }
+    if (typeof g.shaheenGenerateAssociationSync === 'function') {
+        return JSON.parse(g.shaheenGenerateAssociationSync());
     }
-    else {
-        return {
-            success: false,
-            signature: '',
-            error: 'Shaheen JSI bindings are not installed in the runtime. Ensure Native Module is initialized.'
-        };
+    throw new Error('Shaheen JSI bindings are not installed');
+}
+function authorizeSync(cluster) {
+    const g = globalThis;
+    if (typeof g.shaheenAuthorizeSync === 'function') {
+        return JSON.parse(g.shaheenAuthorizeSync(cluster));
     }
+    throw new Error('Shaheen JSI bindings are not installed');
+}
+function signTransactionsSync(cluster, txHex, authToken) {
+    const g = globalThis;
+    if (typeof g.shaheenSignTransactionsSync === 'function') {
+        return JSON.parse(g.shaheenSignTransactionsSync(cluster, txHex, authToken));
+    }
+    throw new Error('Shaheen JSI bindings are not installed');
 }

@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import ShaheenModule, { ShaheenInstruction, ShaheenExecutionResult } from './NativeShaheenSpec';
+import { Linking } from 'react-native';
+import ShaheenModule, { ShaheenAuthorizeResult, ShaheenSignResult } from './NativeShaheenSpec';
 
-export { ShaheenInstruction, ShaheenExecutionResult };
+export { ShaheenAuthorizeResult, ShaheenSignResult };
 export * from './ShaheenMobileWalletAdapter';
 
-// Declare global for the synchronous JSI method
+// Declare globals for the synchronous JSI methods
 declare global {
-  var shaheenExecuteSync: ((cluster: string, instruction: any) => string) | undefined;
+  var shaheenGenerateAssociationSync: (() => string) | undefined;
+  var shaheenAuthorizeSync: ((cluster: string) => string) | undefined;
+  var shaheenSignTransactionsSync: ((cluster: string, txHex: string, authToken: string) => string) | undefined;
 }
 
 export function useShaheenWallet() {
@@ -14,14 +17,25 @@ export function useShaheenWallet() {
 
   const executeTransaction = async (
     cluster: 'mainnet-beta' | 'devnet',
-    instruction: ShaheenInstruction
-  ): Promise<ShaheenExecutionResult> => {
+    txHex: string
+  ): Promise<ShaheenSignResult> => {
     setLoading(true);
     try {
-      const result = await ShaheenModule.connectAndExecute(cluster, instruction);
+      const assoc = await ShaheenModule.generateAssociationUri();
+      await Linking.openURL(assoc.uri);
+      
+      const auth = await ShaheenModule.connectAndAuthorize(cluster, assoc.port);
+      if (!auth.success) {
+        return { success: false, signature: '', signedTxHex: '', error: auth.error };
+      }
+      
+      const assoc2 = await ShaheenModule.generateAssociationUri();
+      await Linking.openURL(assoc2.uri);
+      
+      const result = await ShaheenModule.connectAndSign(cluster, assoc2.port, txHex, auth.authToken);
       return result;
     } catch (e: any) {
-      return { success: false, signature: '', error: e.message || 'Unknown Native Error' };
+      return { success: false, signature: '', signedTxHex: '', error: e.message || 'Unknown Native Error' };
     } finally {
       setLoading(false);
     }
@@ -30,27 +44,26 @@ export function useShaheenWallet() {
   return { executeTransaction, loading };
 }
 
-/**
- * Synchronous transaction execution using the C++ JSI direct binding.
- * Intercepts execution synchronously from Hermes runtime memory references.
- */
-export function executeTransactionSync(
-  cluster: 'mainnet-beta' | 'devnet',
-  instruction: ShaheenInstruction
-): ShaheenExecutionResult {
+export function generateAssociationSync(): { uri: string; port: number } {
   const g = globalThis as any;
-  if (typeof g.shaheenExecuteSync === 'function') {
-    try {
-      const resultJson = g.shaheenExecuteSync(cluster, instruction);
-      return JSON.parse(resultJson);
-    } catch (e: any) {
-      return { success: false, signature: '', error: e.message || 'JSI Execution Error' };
-    }
-  } else {
-    return {
-      success: false,
-      signature: '',
-      error: 'Shaheen JSI bindings are not installed in the runtime. Ensure Native Module is initialized.'
-    };
+  if (typeof g.shaheenGenerateAssociationSync === 'function') {
+    return JSON.parse(g.shaheenGenerateAssociationSync());
   }
+  throw new Error('Shaheen JSI bindings are not installed');
+}
+
+export function authorizeSync(cluster: string): ShaheenAuthorizeResult {
+  const g = globalThis as any;
+  if (typeof g.shaheenAuthorizeSync === 'function') {
+    return JSON.parse(g.shaheenAuthorizeSync(cluster));
+  }
+  throw new Error('Shaheen JSI bindings are not installed');
+}
+
+export function signTransactionsSync(cluster: string, txHex: string, authToken: string): ShaheenSignResult {
+  const g = globalThis as any;
+  if (typeof g.shaheenSignTransactionsSync === 'function') {
+    return JSON.parse(g.shaheenSignTransactionsSync(cluster, txHex, authToken));
+  }
+  throw new Error('Shaheen JSI bindings are not installed');
 }

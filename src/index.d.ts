@@ -1,15 +1,18 @@
-import { ShaheenInstruction, ShaheenExecutionResult } from './NativeShaheenSpec';
-export { ShaheenInstruction, ShaheenExecutionResult };
+import { ShaheenAuthorizeResult, ShaheenSignResult } from './NativeShaheenSpec';
+export { ShaheenAuthorizeResult, ShaheenSignResult };
 export * from './ShaheenMobileWalletAdapter';
 declare global {
-    var shaheenExecuteSync: ((cluster: string, instruction: any) => string) | undefined;
+    var shaheenGenerateAssociationSync: (() => string) | undefined;
+    var shaheenAuthorizeSync: ((cluster: string) => string) | undefined;
+    var shaheenSignTransactionsSync: ((cluster: string, txHex: string, authToken: string) => string) | undefined;
 }
 export declare function useShaheenWallet(): {
-    executeTransaction: (cluster: "mainnet-beta" | "devnet", instruction: ShaheenInstruction) => Promise<ShaheenExecutionResult>;
+    executeTransaction: (cluster: "mainnet-beta" | "devnet", txHex: string) => Promise<ShaheenSignResult>;
     loading: boolean;
 };
-/**
- * Synchronous transaction execution using the C++ JSI direct binding.
- * Intercepts execution synchronously from Hermes runtime memory references.
- */
-export declare function executeTransactionSync(cluster: 'mainnet-beta' | 'devnet', instruction: ShaheenInstruction): ShaheenExecutionResult;
+export declare function generateAssociationSync(): {
+    uri: string;
+    port: number;
+};
+export declare function authorizeSync(cluster: string): ShaheenAuthorizeResult;
+export declare function signTransactionsSync(cluster: string, txHex: string, authToken: string): ShaheenSignResult;
