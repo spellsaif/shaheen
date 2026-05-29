@@ -9,7 +9,6 @@ set_target_properties(shaheen_core PROPERTIES IMPORTED_LOCATION
     ${CMAKE_CURRENT_SOURCE_DIR}/../rust/target/${ANDROID_ABI}/release/libshaheen_core.so)
 
 add_library(shaheen SHARED
-    ../cpp/ShaheenJSI.cpp
     src/main/cpp/ShaheenModule.cpp
 )
 

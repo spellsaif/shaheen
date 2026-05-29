@@ -26,14 +26,6 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
         return "ShaheenModule";
     }
 
-    @Override
-    public void initialize() {
-        super.initialize();
-        JavaScriptContextHolder jsContext = getReactApplicationContext().getJavaScriptContextHolder();
-        if (jsContext != null && jsContext.get() != 0) {
-            nativeInstallJSI(jsContext.get());
-        }
-    }
 
     @ReactMethod
     public void generateAssociationUri(Promise promise) {
@@ -87,7 +79,7 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
         }).start();
     }
 
-    private native void nativeInstallJSI(long jsContextPointer);
+
     private native String nativeGenerateAssociation();
     private native String nativeAuthorize(String cluster);
     private native String nativeSignTransactions(String cluster, String txHex, String authToken);

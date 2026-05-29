@@ -1,7 +1,5 @@
 #include <jni.h>
-#include <jsi/jsi.h>
 #include <string>
-#include "../../../../cpp/ShaheenJSI.h"
 
 extern "C" {
     char* rust_mwa_generate_association();
@@ -10,44 +8,6 @@ extern "C" {
     void rust_free_string(char* s);
 }
 
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_shaheen_ShaheenModule_nativeInstallJSI(JNIEnv *env, jobject thiz, jlong js_context_pointer) {
-    auto runtime = reinterpret_cast<facebook::jsi::Runtime*>(js_context_pointer);
-    if (!runtime) return;
-
-    auto genAssoc = facebook::jsi::Function::createFromHostFunction(
-        *runtime,
-        facebook::jsi::PropNameID::forAscii(*runtime, "shaheenGenerateAssociationSync"),
-        0,
-        [](facebook::jsi::Runtime &rt, const facebook::jsi::Value &thisVal, const facebook::jsi::Value *args, size_t count) -> facebook::jsi::Value {
-            return facebook::react::ShaheenJSI::generateAssociationMwa(rt);
-        }
-    );
-    runtime->global().setProperty(*runtime, "shaheenGenerateAssociationSync", std::move(genAssoc));
-
-    auto authorize = facebook::jsi::Function::createFromHostFunction(
-        *runtime,
-        facebook::jsi::PropNameID::forAscii(*runtime, "shaheenAuthorizeSync"),
-        1,
-        [](facebook::jsi::Runtime &rt, const facebook::jsi::Value &thisVal, const facebook::jsi::Value *args, size_t count) -> facebook::jsi::Value {
-            if (count < 1) return facebook::jsi::Value(false);
-            return facebook::react::ShaheenJSI::authorizeMwa(rt, args[0]);
-        }
-    );
-    runtime->global().setProperty(*runtime, "shaheenAuthorizeSync", std::move(authorize));
-
-    auto sign = facebook::jsi::Function::createFromHostFunction(
-        *runtime,
-        facebook::jsi::PropNameID::forAscii(*runtime, "shaheenSignTransactionsSync"),
-        3,
-        [](facebook::jsi::Runtime &rt, const facebook::jsi::Value &thisVal, const facebook::jsi::Value *args, size_t count) -> facebook::jsi::Value {
-            if (count < 3) return facebook::jsi::Value(false);
-            return facebook::react::ShaheenJSI::signTransactionsMwa(rt, args[0], args[1], args[2]);
-        }
-    );
-    runtime->global().setProperty(*runtime, "shaheenSignTransactionsSync", std::move(sign));
-}
 
 extern "C"
 JNIEXPORT jstring JNICALL
