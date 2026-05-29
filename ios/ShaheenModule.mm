@@ -1,6 +1,4 @@
 #import "ShaheenModule.h"
-#import "../cpp/ShaheenJSI.h"
-#import <React/RCTBridge+Private.h>
 #import <React/RCTUtils.h>
 
 extern "C" {
@@ -19,50 +17,6 @@ RCT_EXPORT_MODULE(ShaheenModule)
     return YES;
 }
 
-- (void)setBridge:(RCTBridge *)bridge {
-    [super setBridge:bridge];
-    
-    // Install JSI bindings when bridge is available
-    RCTCxxBridge *cxxBridge = (RCTCxxBridge *)bridge;
-    if (cxxBridge.runtime) {
-        facebook::jsi::Runtime *rt = (facebook::jsi::Runtime *)cxxBridge.runtime;
-        [self installJSIBindings:*rt];
-    }
-}
-
-- (void)installJSIBindings:(facebook::jsi::Runtime &)rt {
-    auto genAssoc = facebook::jsi::Function::createFromHostFunction(
-        rt,
-        facebook::jsi::PropNameID::forAscii(rt, "shaheenGenerateAssociationSync"),
-        0,
-        [](facebook::jsi::Runtime &rt, const facebook::jsi::Value &thisVal, const facebook::jsi::Value *args, size_t count) -> facebook::jsi::Value {
-            return facebook::react::ShaheenJSI::generateAssociationMwa(rt);
-        }
-    );
-    rt.global().setProperty(rt, "shaheenGenerateAssociationSync", std::move(genAssoc));
-
-    auto authorize = facebook::jsi::Function::createFromHostFunction(
-        rt,
-        facebook::jsi::PropNameID::forAscii(rt, "shaheenAuthorizeSync"),
-        1,
-        [](facebook::jsi::Runtime &rt, const facebook::jsi::Value &thisVal, const facebook::jsi::Value *args, size_t count) -> facebook::jsi::Value {
-            if (count < 1) return facebook::jsi::Value(false);
-            return facebook::react::ShaheenJSI::authorizeMwa(rt, args[0]);
-        }
-    );
-    rt.global().setProperty(rt, "shaheenAuthorizeSync", std::move(authorize));
-
-    auto sign = facebook::jsi::Function::createFromHostFunction(
-        rt,
-        facebook::jsi::PropNameID::forAscii(rt, "shaheenSignTransactionsSync"),
-        3,
-        [](facebook::jsi::Runtime &rt, const facebook::jsi::Value &thisVal, const facebook::jsi::Value *args, size_t count) -> facebook::jsi::Value {
-            if (count < 3) return facebook::jsi::Value(false);
-            return facebook::react::ShaheenJSI::signTransactionsMwa(rt, args[0], args[1], args[2]);
-        }
-    );
-    rt.global().setProperty(rt, "shaheenSignTransactionsSync", std::move(sign));
-}
 
 RCT_EXPORT_METHOD(generateAssociationUri:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject) {
