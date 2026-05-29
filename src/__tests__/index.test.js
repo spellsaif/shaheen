@@ -94,29 +94,6 @@ describe('Shaheen JS Layer Tests', () => {
         expect(res.signature).toBe('test_sig');
         expect(res.signedTxHex).toBe('aabbcc');
     });
-    it('generateAssociationSync JSI helper returns correctly', () => {
-        global.shaheenGenerateAssociationSync = jest.fn().mockReturnValue(JSON.stringify({ uri: 'solana-wallet://test', port: 55555 }));
-        const res = (0, index_1.generateAssociationSync)();
-        expect(res.uri).toBe('solana-wallet://test');
-        expect(res.port).toBe(55555);
-        expect(global.shaheenGenerateAssociationSync).toHaveBeenCalled();
-    });
-    it('authorizeSync JSI helper returns correctly', () => {
-        global.shaheenAuthorizeSync = jest.fn().mockReturnValue(JSON.stringify({ success: true, publicKey: 'pubkey', authToken: 'token', error: '' }));
-        const res = (0, index_1.authorizeSync)('devnet');
-        expect(res.success).toBe(true);
-        expect(res.publicKey).toBe('pubkey');
-        expect(res.authToken).toBe('token');
-        expect(global.shaheenAuthorizeSync).toHaveBeenCalledWith('devnet');
-    });
-    it('signTransactionsSync JSI helper returns correctly', () => {
-        global.shaheenSignTransactionsSync = jest.fn().mockReturnValue(JSON.stringify({ success: true, signature: 'sig', signedTxHex: 'aabbcc', error: '' }));
-        const res = (0, index_1.signTransactionsSync)('devnet', 'aabbcc', 'token');
-        expect(res.success).toBe(true);
-        expect(res.signature).toBe('sig');
-        expect(res.signedTxHex).toBe('aabbcc');
-        expect(global.shaheenSignTransactionsSync).toHaveBeenCalledWith('devnet', 'aabbcc', 'token');
-    });
     describe('ShaheenMobileWalletAdapter Class Tests', () => {
         let adapter;
         beforeEach(() => {

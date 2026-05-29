@@ -5,13 +5,6 @@ import ShaheenModule, { ShaheenAuthorizeResult, ShaheenSignResult } from './Nati
 export { ShaheenAuthorizeResult, ShaheenSignResult };
 export * from './ShaheenMobileWalletAdapter';
 
-// Declare globals for the synchronous JSI methods
-declare global {
-  var shaheenGenerateAssociationSync: (() => string) | undefined;
-  var shaheenAuthorizeSync: ((cluster: string) => string) | undefined;
-  var shaheenSignTransactionsSync: ((cluster: string, txHex: string, authToken: string) => string) | undefined;
-}
-
 export function useShaheenWallet() {
   const [loading, setLoading] = useState(false);
 
@@ -44,26 +37,3 @@ export function useShaheenWallet() {
   return { executeTransaction, loading };
 }
 
-export function generateAssociationSync(): { uri: string; port: number } {
-  const g = globalThis as any;
-  if (typeof g.shaheenGenerateAssociationSync === 'function') {
-    return JSON.parse(g.shaheenGenerateAssociationSync());
-  }
-  throw new Error('Shaheen JSI bindings are not installed');
-}
-
-export function authorizeSync(cluster: string): ShaheenAuthorizeResult {
-  const g = globalThis as any;
-  if (typeof g.shaheenAuthorizeSync === 'function') {
-    return JSON.parse(g.shaheenAuthorizeSync(cluster));
-  }
-  throw new Error('Shaheen JSI bindings are not installed');
-}
-
-export function signTransactionsSync(cluster: string, txHex: string, authToken: string): ShaheenSignResult {
-  const g = globalThis as any;
-  if (typeof g.shaheenSignTransactionsSync === 'function') {
-    return JSON.parse(g.shaheenSignTransactionsSync(cluster, txHex, authToken));
-  }
-  throw new Error('Shaheen JSI bindings are not installed');
-}

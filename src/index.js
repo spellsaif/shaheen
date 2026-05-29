@@ -18,9 +18,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.useShaheenWallet = useShaheenWallet;
-exports.generateAssociationSync = generateAssociationSync;
-exports.authorizeSync = authorizeSync;
-exports.signTransactionsSync = signTransactionsSync;
 const react_1 = require("react");
 const react_native_1 = require("react-native");
 const NativeShaheenSpec_1 = __importDefault(require("./NativeShaheenSpec"));
@@ -49,25 +46,4 @@ function useShaheenWallet() {
         }
     };
     return { executeTransaction, loading };
-}
-function generateAssociationSync() {
-    const g = globalThis;
-    if (typeof g.shaheenGenerateAssociationSync === 'function') {
-        return JSON.parse(g.shaheenGenerateAssociationSync());
-    }
-    throw new Error('Shaheen JSI bindings are not installed');
-}
-function authorizeSync(cluster) {
-    const g = globalThis;
-    if (typeof g.shaheenAuthorizeSync === 'function') {
-        return JSON.parse(g.shaheenAuthorizeSync(cluster));
-    }
-    throw new Error('Shaheen JSI bindings are not installed');
-}
-function signTransactionsSync(cluster, txHex, authToken) {
-    const g = globalThis;
-    if (typeof g.shaheenSignTransactionsSync === 'function') {
-        return JSON.parse(g.shaheenSignTransactionsSync(cluster, txHex, authToken));
-    }
-    throw new Error('Shaheen JSI bindings are not installed');
 }

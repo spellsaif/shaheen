@@ -49,7 +49,7 @@ jest.mock('react-native', () => ({
   },
 }));
 
-import { generateAssociationSync, authorizeSync, signTransactionsSync, ShaheenMobileWalletAdapter } from '../index';
+import { ShaheenMobileWalletAdapter } from '../index';
 import ShaheenModule from '../NativeShaheenSpec';
 import { Linking } from 'react-native';
 
@@ -99,41 +99,6 @@ describe('Shaheen JS Layer Tests', () => {
     expect(res.success).toBe(true);
     expect(res.signature).toBe('test_sig');
     expect(res.signedTxHex).toBe('aabbcc');
-  });
-
-  it('generateAssociationSync JSI helper returns correctly', () => {
-    (global as any).shaheenGenerateAssociationSync = jest.fn().mockReturnValue(
-      JSON.stringify({ uri: 'solana-wallet://test', port: 55555 })
-    );
-
-    const res = generateAssociationSync();
-    expect(res.uri).toBe('solana-wallet://test');
-    expect(res.port).toBe(55555);
-    expect((global as any).shaheenGenerateAssociationSync).toHaveBeenCalled();
-  });
-
-  it('authorizeSync JSI helper returns correctly', () => {
-    (global as any).shaheenAuthorizeSync = jest.fn().mockReturnValue(
-      JSON.stringify({ success: true, publicKey: 'pubkey', authToken: 'token', error: '' })
-    );
-
-    const res = authorizeSync('devnet');
-    expect(res.success).toBe(true);
-    expect(res.publicKey).toBe('pubkey');
-    expect(res.authToken).toBe('token');
-    expect((global as any).shaheenAuthorizeSync).toHaveBeenCalledWith('devnet');
-  });
-
-  it('signTransactionsSync JSI helper returns correctly', () => {
-    (global as any).shaheenSignTransactionsSync = jest.fn().mockReturnValue(
-      JSON.stringify({ success: true, signature: 'sig', signedTxHex: 'aabbcc', error: '' })
-    );
-
-    const res = signTransactionsSync('devnet', 'aabbcc', 'token');
-    expect(res.success).toBe(true);
-    expect(res.signature).toBe('sig');
-    expect(res.signedTxHex).toBe('aabbcc');
-    expect((global as any).shaheenSignTransactionsSync).toHaveBeenCalledWith('devnet', 'aabbcc', 'token');
   });
 
   describe('ShaheenMobileWalletAdapter Class Tests', () => {
