@@ -222,6 +222,33 @@ export function QuickTransfer() {
 }
 ```
 
+### 4. Silent Re-Authorization (Token Persistence)
+
+To provide a seamless experience without showing the "Authorize" dialog every time, save the `authToken` (in `AsyncStorage` or `expo-secure-store`) and supply it on subsequent calls:
+
+```typescript
+// 1. First time: Save the token
+const auth = await wallet.authorize({ chain: 'solana:mainnet' });
+await AsyncStorage.setItem('mwa_auth_token', auth.authToken);
+
+// 2. Subsequent runs: Pass token for silent authorization without user prompt
+const savedToken = await AsyncStorage.getItem('mwa_auth_token');
+const silentAuth = await wallet.authorize({
+  chain: 'solana:mainnet',
+  authToken: savedToken ?? undefined,
+});
+```
+
+---
+
+## ❓ Architectural FAQ: Why `transact()` Instead of `SolanaMobileWalletAdapter`?
+
+Developers coming from desktop web browsers often ask why Shaheen uses `transact()` rather than the browser-style `SolanaMobileWalletAdapter` class:
+
+- **Desktop vs. Mobile Realities**: On desktop, browser extensions (Phantom on Chrome) live continuously in the browser window. On mobile, the wallet is a separate Android app communicating over encrypted loopback WebSockets initiated via Android Intents.
+- **The "Double-Intent" Bug**: Adapters that mimic desktop extensions (`adapter.connect()` then `adapter.signTransaction()`) force Android to launch the wallet app twice. This causes app-switching flicker, broken WebSocket handshakes, and lost state.
+- **The MWA 2.0 Standard**: Modern Solana Mobile Wallet Adapter 2.0 uses `transact()`. It opens one secure native session, performs authorization, queries capabilities, and signs/sends batches of transactions in **one single wallet presentation**, then zeroizes all ephemeral keys automatically when the session closes.
+
 ---
 
 ## 🔒 Security & Wire Specification Details
