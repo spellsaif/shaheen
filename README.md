@@ -178,7 +178,7 @@ async function sendSolTransaction() {
 
 ### 2. True Transaction Batching
 
-Unlike legacy wrappers that loop over transactions sequentially, Shaheen serializes the entire array and submits a single `sign_and_send_transactions` or `sign_transactions` RPC request over the encrypted MWA 2.0 session:
+Rather than sending transactions one-by-one in a sequential loop, Shaheen serializes the entire array and dispatches a single `sign_and_send_transactions` or `sign_transactions` RPC request over the encrypted MWA 2.0 session:
 
 ```typescript
 await transact(async (wallet) => {
