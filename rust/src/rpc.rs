@@ -84,8 +84,6 @@ pub struct AuthorizeParams {
     pub auth_token: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sign_in_payload: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cluster: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
