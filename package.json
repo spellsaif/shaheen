@@ -45,7 +45,6 @@
     "react-native": "*"
   },
   "devDependencies": {
-    "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/web3.js": "^1.98.4",
     "@types/jest": "^29.5.0",
     "@types/react": "*",
