@@ -7,6 +7,7 @@
   "scripts": {
     "typescript": "tsc",
     "build": "tsc",
+    "build:android": "bash scripts/build-android-so.sh",
     "test": "jest"
   },
   "files": [

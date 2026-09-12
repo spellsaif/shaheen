@@ -47,3 +47,32 @@ jobs:
 
       - name: Run Jest Unit Tests
         run: npm test
+
+  build-android-so:
+    name: Cross-Compile Android Native Libraries (.so)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build Android .so Libraries
+        run: bash scripts/build-android-so.sh
+
+      - name: Upload jniLibs Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shaheen-android-jniLibs
+          path: android/src/main/jniLibs/
