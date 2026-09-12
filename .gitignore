@@ -1,0 +1,45 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp*
+.yarn/
+
+# Rust
+/rust/target/
+**/*.rs.bk
+
+# Android
+/android/.gradle/
+/android/app/build/
+/android/build/
+/android/local.properties
+*.iml
+.idea/
+
+# iOS
+/ios/Pods/
+/ios/build/
+.xcworkspace/
+*.xcresult/
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+*.xccheckout
+DerivedData/
+
+# React Native / Bundlers
+.expo/
+.metro/
+.bundle/
+
+# OS/System
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

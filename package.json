@@ -1,0 +1,59 @@
+{
+  "name": "shaheen",
+  "version": "1.0.0",
+  "description": "Android-first, polyfill-free Solana Mobile Wallet Adapter (MWA 2.0) native protocol engine using Rust",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typescript": "tsc",
+    "build": "tsc",
+    "test": "jest"
+  },
+  "files": [
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.d.ts",
+    "!src/**/__tests__/**",
+    "android",
+    "rust/src",
+    "rust/Cargo.toml",
+    "rust/Cargo.lock",
+    "app.plugin.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "solana",
+    "react-native",
+    "rust",
+    "jsi",
+    "turbomodule"
+  ],
+  "homepage": "https://github.com/spellsaif/shaheen",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/spellsaif/shaheen.git"
+  },
+  "author": "spellsaif",
+  "license": "MIT",
+  "peerDependencies": {
+    "@solana/web3.js": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "@solana/wallet-adapter-base": "^0.9.27",
+    "@solana/web3.js": "^1.98.4",
+    "@types/jest": "^29.5.0",
+    "@types/react": "*",
+    "@types/react-native": "*",
+    "jest": "^29.5.0",
+    "react-native": "^0.74.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  },
+  "codegenConfig": {
+    "name": "ShaheenSpec",
+    "type": "modules",
+    "jsSrcsDir": "src"
+  }
+}
