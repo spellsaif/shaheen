@@ -36,7 +36,7 @@
   "homepage": "https://github.com/spellsaif/shaheen",
   "repository": {
     "type": "git",
-    "url": "https://github.com/spellsaif/shaheen.git"
+    "url": "git+https://github.com/spellsaif/shaheen.git"
   },
   "author": "spellsaif",
   "license": "MIT",
