@@ -33,13 +33,6 @@ jest.mock('@solana/web3.js', () => {
         VersionedTransaction: MockVersionedTransaction,
     };
 });
-jest.mock('react', () => {
-    const actual = jest.requireActual('react');
-    return {
-        ...actual,
-        useState: jest.fn((init) => [init, jest.fn()]),
-    };
-});
 jest.mock('react-native', () => ({
     TurboModuleRegistry: {
         getEnforcing: jest.fn(),
@@ -230,51 +223,6 @@ describe('Shaheen MWA 2.0 Native Protocol Engine Tests', () => {
             expect(calledSessionId).toBe('session-batch-2');
             const parsed = JSON.parse(calledPayloadJson);
             expect(parsed).toHaveLength(2);
-        });
-    });
-    describe('useShaheenWallet Hook', () => {
-        it('executes transaction and returns signature', async () => {
-            NativeShaheenSpec_1.default.createSession.mockResolvedValue({
-                success: true,
-                sessionId: 'session-hook-1',
-                uri: 'solana-wallet://hook',
-                port: 50000,
-                associationToken: 'tok',
-            });
-            NativeShaheenSpec_1.default.connectAndAuthorizeSession.mockResolvedValue({
-                success: true,
-                authToken: 'auth-hook',
-                publicKey: '11111111111111111111111111111111',
-                accounts: [],
-                error: '',
-            });
-            NativeShaheenSpec_1.default.signAndSend.mockResolvedValue({
-                success: true,
-                signatures: ['hook_sig_123'],
-                signature: 'hook_sig_123',
-                error: '',
-            });
-            const { executeTransaction } = (0, index_1.useShaheenWallet)();
-            const res = await executeTransaction('mainnet-beta', '010203');
-            expect(res.success).toBe(true);
-            expect(res.signature).toBe('hook_sig_123');
-            expect(res.signedTxHex).toBe('010203');
-            expect(res.error).toBe('');
-        });
-        it('handles failure gracefully', async () => {
-            NativeShaheenSpec_1.default.createSession.mockResolvedValue({
-                success: false,
-                sessionId: '',
-                uri: '',
-                port: 0,
-                associationToken: '',
-                error: 'Failed to bind port',
-            });
-            const { executeTransaction } = (0, index_1.useShaheenWallet)();
-            const res = await executeTransaction('mainnet-beta', '010203');
-            expect(res.success).toBe(false);
-            expect(res.signature).toBe('');
-            expect(res.error).toContain('Failed to create MWA session');
         });
     });
 });

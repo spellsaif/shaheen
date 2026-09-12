@@ -193,36 +193,7 @@ await transact(async (wallet) => {
 });
 ```
 
-### 3. Quick React Hook (`useShaheenWallet`)
-
-For simple interactions, Shaheen provides a turnkey React hook that manages loading states and executes transactions inside a persistent MWA 2.0 session:
-
-```typescript
-import React from 'react';
-import { Button, Text, View } from 'react-native';
-import { useShaheenWallet } from 'shaheen';
-
-export function QuickTransfer() {
-  const { executeTransaction, loading } = useShaheenWallet();
-
-  const handleSend = async () => {
-    const res = await executeTransaction('devnet', serializedTxHex);
-    if (res.success) {
-      console.log('Signed tx signature:', res.signature);
-    } else {
-      console.error('Signing failed:', res.error);
-    }
-  };
-
-  return (
-    <View>
-      <Button title={loading ? 'Signing...' : 'Sign Transaction'} onPress={handleSend} disabled={loading} />
-    </View>
-  );
-}
-```
-
-### 4. Silent Re-Authorization (Token Persistence)
+### 3. Silent Re-Authorization (Token Persistence)
 
 To provide a seamless experience without showing the "Authorize" dialog every time, save the `authToken` (in `AsyncStorage` or `expo-secure-store`) and supply it on subsequent calls:
 
@@ -238,16 +209,6 @@ const silentAuth = await wallet.authorize({
   authToken: savedToken ?? undefined,
 });
 ```
-
----
-
-## ❓ Architectural FAQ: Why `transact()` Instead of `SolanaMobileWalletAdapter`?
-
-Developers coming from desktop web browsers often ask why Shaheen uses `transact()` rather than the browser-style `SolanaMobileWalletAdapter` class:
-
-- **Desktop vs. Mobile Realities**: On desktop, browser extensions (Phantom on Chrome) live continuously in the browser window. On mobile, the wallet is a separate Android app communicating over encrypted loopback WebSockets initiated via Android Intents.
-- **The "Double-Intent" Bug**: Adapters that mimic desktop extensions (`adapter.connect()` then `adapter.signTransaction()`) force Android to launch the wallet app twice. This causes app-switching flicker, broken WebSocket handshakes, and lost state.
-- **The MWA 2.0 Standard**: Modern Solana Mobile Wallet Adapter 2.0 uses `transact()`. It opens one secure native session, performs authorization, queries capabilities, and signs/sends batches of transactions in **one single wallet presentation**, then zeroizes all ephemeral keys automatically when the session closes.
 
 ---
 
