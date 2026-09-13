@@ -54,10 +54,5 @@
     "react-native": "^0.74.0",
     "ts-jest": "^29.1.0",
     "typescript": "^5.0.0"
-  },
-  "codegenConfig": {
-    "name": "ShaheenSpec",
-    "type": "modules",
-    "jsSrcsDir": "src"
   }
 }
