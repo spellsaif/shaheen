@@ -13,10 +13,17 @@ import com.facebook.react.bridge.WritableMap;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class ShaheenModule extends ReactContextBaseJavaModule {
+    public static final String NAME = "ShaheenModule";
+
     static {
         System.loadLibrary("shaheen");
     }
+
+    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     public ShaheenModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -24,7 +31,7 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
 
     @Override
     public String getName() {
-        return "ShaheenModule";
+        return NAME;
     }
 
     // -----------------------------------------------------------------------
@@ -33,24 +40,33 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void createSession(double port, Promise promise) {
-        new Thread(() -> {
+        executor.execute(() -> {
             try {
                 String resultJson = nativeCreateSession((int) port);
                 JSONObject obj = new JSONObject(resultJson);
                 WritableMap map = Arguments.createMap();
-                map.putBoolean("success", obj.optBoolean("success", false));
+                boolean success = obj.optBoolean("success", false);
+                map.putBoolean("success", success);
                 map.putString("sessionId", obj.optString("sessionId", ""));
                 map.putString("uri", obj.optString("uri", ""));
                 map.putInt("port", obj.optInt("port", 0));
                 map.putString("associationToken", obj.optString("associationToken", ""));
+                if (obj.has("errorCode")) {
+                    map.putString("errorCode", obj.optString("errorCode", ""));
+                }
                 if (obj.has("error")) {
                     map.putString("error", obj.optString("error", ""));
+                }
+                if (!success && obj.has("error")) {
+                    String code = obj.optString("errorCode", "SESSION_CREATE_ERROR");
+                    promise.reject(code, obj.optString("error", "Failed to create session"));
+                    return;
                 }
                 promise.resolve(map);
             } catch (Exception e) {
                 promise.reject("SESSION_CREATE_ERROR", e.getMessage() != null ? e.getMessage() : "Unknown Error");
             }
-        }).start();
+        });
     }
 
     private static final int MWA_REQUEST_CODE = 42152;
@@ -84,7 +100,7 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
             String identityIcon,
             Promise promise
     ) {
-        new Thread(() -> {
+        executor.execute(() -> {
             try {
                 String resultJson = nativeConnectAndAuthorizeSession(
                     sessionId, wsUrl, chain, authToken,
@@ -92,10 +108,14 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
                 );
                 JSONObject obj = new JSONObject(resultJson);
                 WritableMap map = Arguments.createMap();
-                map.putBoolean("success", obj.optBoolean("success", false));
+                boolean success = obj.optBoolean("success", false);
+                map.putBoolean("success", success);
                 map.putString("authToken", obj.optString("authToken", ""));
                 map.putString("publicKey", obj.optString("publicKey", ""));
                 map.putString("error", obj.optString("error", ""));
+                if (obj.has("errorCode")) {
+                    map.putString("errorCode", obj.optString("errorCode", ""));
+                }
 
                 WritableArray accountsArr = Arguments.createArray();
                 if (obj.has("accounts")) {
@@ -115,24 +135,34 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
                 }
                 map.putArray("accounts", accountsArr);
 
+                if (!success && obj.has("error") && !obj.optString("error").isEmpty()) {
+                    String code = obj.optString("errorCode", "AUTHORIZE_ERROR");
+                    promise.reject(code, obj.optString("error", "Authorization failed"));
+                    return;
+                }
+
                 promise.resolve(map);
             } catch (Exception e) {
                 promise.reject("AUTHORIZE_ERROR", e.getMessage() != null ? e.getMessage() : "Unknown Error");
             }
-        }).start();
+        });
     }
 
     @ReactMethod
     public void signAndSend(String sessionId, String txPayloadsJson, Promise promise) {
-        new Thread(() -> {
+        executor.execute(() -> {
             try {
                 String resultJson = nativeSignAndSend(sessionId, txPayloadsJson);
                 JSONObject obj = new JSONObject(resultJson);
 
                 WritableMap map = Arguments.createMap();
-                map.putBoolean("success", obj.optBoolean("success", false));
+                boolean success = obj.optBoolean("success", false);
+                map.putBoolean("success", success);
                 map.putString("signature", obj.optString("signature", ""));
                 map.putString("error", obj.optString("error", ""));
+                if (obj.has("errorCode")) {
+                    map.putString("errorCode", obj.optString("errorCode", ""));
+                }
 
                 WritableArray sigsArr = Arguments.createArray();
                 if (obj.has("signatures")) {
@@ -143,24 +173,34 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
                 }
                 map.putArray("signatures", sigsArr);
 
+                if (!success && obj.has("error") && !obj.optString("error").isEmpty()) {
+                    String code = obj.optString("errorCode", "SIGN_AND_SEND_ERROR");
+                    promise.reject(code, obj.optString("error", "Sign and send failed"));
+                    return;
+                }
+
                 promise.resolve(map);
             } catch (Exception e) {
                 promise.reject("SIGN_AND_SEND_ERROR", e.getMessage() != null ? e.getMessage() : "Unknown Error");
             }
-        }).start();
+        });
     }
 
     @ReactMethod
     public void signTransactions(String sessionId, String txPayloadsJson, Promise promise) {
-        new Thread(() -> {
+        executor.execute(() -> {
             try {
                 String resultJson = nativeSignTransactionsSession(sessionId, txPayloadsJson);
                 JSONObject obj = new JSONObject(resultJson);
 
                 WritableMap map = Arguments.createMap();
-                map.putBoolean("success", obj.optBoolean("success", false));
+                boolean success = obj.optBoolean("success", false);
+                map.putBoolean("success", success);
                 map.putString("signedTxBase64", obj.optString("signedTxBase64", ""));
                 map.putString("error", obj.optString("error", ""));
+                if (obj.has("errorCode")) {
+                    map.putString("errorCode", obj.optString("errorCode", ""));
+                }
 
                 WritableArray txsArr = Arguments.createArray();
                 if (obj.has("signedTxsBase64")) {
@@ -171,23 +211,148 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
                 }
                 map.putArray("signedTxsBase64", txsArr);
 
+                if (!success && obj.has("error") && !obj.optString("error").isEmpty()) {
+                    String code = obj.optString("errorCode", "SIGN_TRANSACTIONS_ERROR");
+                    promise.reject(code, obj.optString("error", "Sign transactions failed"));
+                    return;
+                }
+
                 promise.resolve(map);
             } catch (Exception e) {
                 promise.reject("SIGN_TRANSACTIONS_ERROR", e.getMessage() != null ? e.getMessage() : "Unknown Error");
             }
-        }).start();
+        });
+    }
+
+    @ReactMethod
+    public void signMessages(String sessionId, String addressesJson, String payloadsJson, Promise promise) {
+        executor.execute(() -> {
+            try {
+                String resultJson = nativeSignMessages(sessionId, addressesJson, payloadsJson);
+                JSONObject obj = new JSONObject(resultJson);
+
+                WritableMap map = Arguments.createMap();
+                boolean success = obj.optBoolean("success", false);
+                map.putBoolean("success", success);
+                map.putString("signedPayload", obj.optString("signedPayload", ""));
+                map.putString("error", obj.optString("error", ""));
+                if (obj.has("errorCode")) {
+                    map.putString("errorCode", obj.optString("errorCode", ""));
+                }
+
+                WritableArray payloadsArr = Arguments.createArray();
+                if (obj.has("signedPayloads")) {
+                    JSONArray jsonPayloads = obj.getJSONArray("signedPayloads");
+                    for (int i = 0; i < jsonPayloads.length(); i++) {
+                        payloadsArr.pushString(jsonPayloads.getString(i));
+                    }
+                }
+                map.putArray("signedPayloads", payloadsArr);
+
+                if (!success && obj.has("error") && !obj.optString("error").isEmpty()) {
+                    String code = obj.optString("errorCode", "SIGN_MESSAGES_ERROR");
+                    promise.reject(code, obj.optString("error", "Sign messages failed"));
+                    return;
+                }
+
+                promise.resolve(map);
+            } catch (Exception e) {
+                promise.reject("SIGN_MESSAGES_ERROR", e.getMessage() != null ? e.getMessage() : "Unknown Error");
+            }
+        });
+    }
+
+    @ReactMethod
+    public void getCapabilities(String sessionId, Promise promise) {
+        executor.execute(() -> {
+            try {
+                String resultJson = nativeGetCapabilities(sessionId);
+                JSONObject obj = new JSONObject(resultJson);
+
+                WritableMap map = Arguments.createMap();
+                boolean success = obj.optBoolean("success", false);
+                map.putBoolean("success", success);
+                map.putString("error", obj.optString("error", ""));
+                if (obj.has("errorCode")) {
+                    map.putString("errorCode", obj.optString("errorCode", ""));
+                }
+
+                if (obj.has("maxTransactionsPerRequest") && !obj.isNull("maxTransactionsPerRequest")) {
+                    map.putInt("maxTransactionsPerRequest", obj.optInt("maxTransactionsPerRequest"));
+                }
+                if (obj.has("maxMessagesPerRequest") && !obj.isNull("maxMessagesPerRequest")) {
+                    map.putInt("maxMessagesPerRequest", obj.optInt("maxMessagesPerRequest"));
+                }
+
+                WritableArray versionsArr = Arguments.createArray();
+                if (obj.has("supportedTransactionVersions")) {
+                    JSONArray jsonVersions = obj.getJSONArray("supportedTransactionVersions");
+                    for (int i = 0; i < jsonVersions.length(); i++) {
+                        versionsArr.pushString(jsonVersions.getString(i));
+                    }
+                }
+                map.putArray("supportedTransactionVersions", versionsArr);
+
+                WritableArray featuresArr = Arguments.createArray();
+                if (obj.has("features")) {
+                    JSONArray jsonFeatures = obj.getJSONArray("features");
+                    for (int i = 0; i < jsonFeatures.length(); i++) {
+                        featuresArr.pushString(jsonFeatures.getString(i));
+                    }
+                }
+                map.putArray("features", featuresArr);
+
+                if (!success && obj.has("error") && !obj.optString("error").isEmpty()) {
+                    String code = obj.optString("errorCode", "GET_CAPABILITIES_ERROR");
+                    promise.reject(code, obj.optString("error", "Get capabilities failed"));
+                    return;
+                }
+
+                promise.resolve(map);
+            } catch (Exception e) {
+                promise.reject("GET_CAPABILITIES_ERROR", e.getMessage() != null ? e.getMessage() : "Unknown Error");
+            }
+        });
+    }
+
+    @ReactMethod
+    public void deauthorize(String sessionId, Promise promise) {
+        executor.execute(() -> {
+            try {
+                String resultJson = nativeDeauthorize(sessionId);
+                JSONObject obj = new JSONObject(resultJson);
+
+                WritableMap map = Arguments.createMap();
+                boolean success = obj.optBoolean("success", false);
+                map.putBoolean("success", success);
+                map.putString("error", obj.optString("error", ""));
+                if (obj.has("errorCode")) {
+                    map.putString("errorCode", obj.optString("errorCode", ""));
+                }
+
+                if (!success && obj.has("error") && !obj.optString("error").isEmpty()) {
+                    String code = obj.optString("errorCode", "DEAUTHORIZE_ERROR");
+                    promise.reject(code, obj.optString("error", "Deauthorize failed"));
+                    return;
+                }
+
+                promise.resolve(map);
+            } catch (Exception e) {
+                promise.reject("DEAUTHORIZE_ERROR", e.getMessage() != null ? e.getMessage() : "Unknown Error");
+            }
+        });
     }
 
     @ReactMethod
     public void closeSession(String sessionId, Promise promise) {
-        new Thread(() -> {
+        executor.execute(() -> {
             try {
                 nativeCloseSession(sessionId);
                 promise.resolve(null);
             } catch (Exception e) {
                 promise.reject("CLOSE_SESSION_ERROR", e.getMessage() != null ? e.getMessage() : "Unknown Error");
             }
-        }).start();
+        });
     }
 
     // Native JNI Declarations
@@ -203,5 +368,8 @@ public class ShaheenModule extends ReactContextBaseJavaModule {
     );
     private native String nativeSignAndSend(String sessionId, String txPayloadsJson);
     private native String nativeSignTransactionsSession(String sessionId, String txPayloadsJson);
+    private native String nativeSignMessages(String sessionId, String addressesJson, String payloadsJson);
+    private native String nativeGetCapabilities(String sessionId);
+    private native String nativeDeauthorize(String sessionId);
     private native void nativeCloseSession(String sessionId);
 }
