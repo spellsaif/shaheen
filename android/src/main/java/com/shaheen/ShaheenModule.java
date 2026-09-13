@@ -16,10 +16,14 @@ import org.json.JSONObject;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class ShaheenModule extends ReactContextBaseJavaModule {
+public class ShaheenModule extends NativeShaheenSpecSpec {
     public static final String NAME = "ShaheenModule";
 
     static {
+        try {
+            System.loadLibrary("shaheen_core");
+        } catch (UnsatisfiedLinkError ignored) {
+        }
         System.loadLibrary("shaheen");
     }
 
