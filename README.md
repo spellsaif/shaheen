@@ -1,124 +1,66 @@
-# 🦅 Shaheen: Native Rust Protocol Engine for Solana Mobile Wallet Adapter (MWA 2.0)
+<p align="center">
+  <img src="./logo.png" alt="Shaheen" width="160" />
+</p>
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Compiler](https://img.shields.io/badge/Rust-2021-orange.svg)](https://www.rust-lang.org/)
-[![C++](https://img.shields.io/badge/C%2B%2B-17-green.svg)](https://en.cppreference.com/)
-[![React Native](https://img.shields.io/badge/React_Native-0.74_%E2%80%93_0.87%2B_(Bridgeless)-cyan.svg)](https://reactnative.dev/)
-[![Expo](https://img.shields.io/badge/Expo-Config_Plugin-black.svg)](https://expo.dev/)
+<h1 align="center">Shaheen</h1>
 
-**Shaheen** (شاهين, meaning *Falcon*) is an **Android-first, specification-compliant native protocol engine and React Native SDK** for the **Solana Mobile Wallet Adapter (MWA 2.0)** standard. 
+<p align="center">
+  <b>Android-first, polyfill-free Solana Mobile Wallet Adapter (MWA 2.0) native protocol engine for React Native & Expo</b>
+</p>
 
-By executing all MWA 2.0 handshakes, key derivation, authenticated encryption, and session state machines inside a compiled **Rust core**, Shaheen completely eliminates the need for Node.js runtime polyfills (`Buffer`, `react-native-quick-crypto`, `react-native-get-random-values`), prevents JavaScript thread stalls, and provides single-session transaction batching for React Native and Expo applications.
-
----
-
-## ⚡ Key Highlights
-
-- 🚀 **Zero JS Crypto Polyfills**: No `react-native-get-random-values`, `buffer`, or `crypto-browserify` needed in your application entry point. All cryptography executes in native compiled Rust.
-- 🔒 **MWA 2.0 Spec Compliant**: Implements the official P-256 Association Keypair separation, 129-byte `HELLO_REQ` wire framing, HKDF-SHA256 key derivation with $Q_a$ salt, AES-128-GCM sequence AAD, and monotonic sequence validation.
-- 🧵 **Native Background Execution**: All WebSocket networking, frame decoding, and cryptographic operations run on dedicated native background threads via Rust, preventing React Native / Hermes JavaScript thread stalls.
-- 📦 **Expo Config Plugin**: Zero-configuration Android manifest intent injection via `app.plugin.js` for Expo Development Builds (`npx expo run:android` / EAS Build).
-- 🍏 **Extensible Transport Architecture**: Native Rust core compiles across Android and Apple platforms; designed to support emerging remote MWA relay transports (Nostr / reflector) for cross-platform extensions.
+<p align="center">
+  <a href="https://www.npmjs.com/package/shaheen"><img src="https://img.shields.io/badge/npm-v1.1.0-black?logo=npm" alt="npm version" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-black.svg" alt="license" /></a>
+  <a href="https://reactnative.dev"><img src="https://img.shields.io/badge/React_Native-TurboModule-blue" alt="React Native" /></a>
+  <a href="https://expo.dev"><img src="https://img.shields.io/badge/Expo-Config_Plugin-black" alt="Expo" /></a>
+  <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/Core-Rust_2021-orange" alt="Rust" /></a>
+</p>
 
 ---
 
-## 📊 Empirical Cryptographic Benchmarks
+## Why Shaheen?
 
-The following benchmarks were measured directly on a release build of `shaheen_core` running 1,000 iterations per operation (`cargo bench` in `rust/`):
+Traditional Solana mobile integration on React Native requires heavy JavaScript polyfills (`Buffer`, `react-native-quick-crypto`, `react-native-get-random-values`), which slow down the Hermes runtime and complicate Metro configurations.
 
-| Operation | Specification / Cryptographic Primitive | Average Latency (`cargo bench`) |
-| :--- | :--- | :--- |
-| **Association Keypair Generation** | NIST P-256 (`secp256r1`) | **~412.00 µs** (0.41 ms) |
-| **HELLO_REQ Signature** | ECDSA-SHA256 (64-byte IEEE P1363) | **~889.33 µs** (0.89 ms) |
-| **HELLO_REQ Signature Verification** | ECDSA-SHA256 | **~801.75 µs** (0.80 ms) |
-| **Session Key Derivation** | P-256 ECDH + HKDF-SHA256 ($Q_a$ Salt) | **~411.49 µs** (0.41 ms) |
-| **Transaction Payload Encryption** | AES-128-GCM (300B Payload, 4B Seq AAD) | **~1.36 µs** (0.001 ms) |
-| **Transaction Payload Decryption** | AES-128-GCM (300B Payload, 4B Seq AAD) | **~1.28 µs** (0.001 ms) |
-| **Full Handshake + Tx Encrypt** | **Complete MWA 2.0 Cycle** | **~1.73 ms** |
+**Shaheen moves the entire MWA 2.0 protocol into compiled native Rust:**
 
-> *Reproduce locally: `cd rust && cargo bench`. Hardware: 12th Gen Intel(R) Core(TM) i3-1215U / Linux x86_64.*
+* **⚡ Native Performance** — P-256 key exchange, HKDF-SHA256 derivation, and AES-128-GCM execute in native code off the JavaScript thread.
+* **🚀 Zero Polyfills** — Works out of the box with `@solana/web3.js` without configuring shim files or Metro transformers.
+* **📱 TurboModule Architecture** — Designed for React Native's New Architecture (Bridgeless / JSI) with background thread pooling.
+* **🔒 Full MWA 2.0 Feature Parity** — Supports `authorize`, `getCapabilities`, `signMessages` (Sign-In with Solana), `signAndSendTransactions`, and `deauthorize`.
+* **🧠 Intelligent Batching** — Automatically chunks transactions to conform to wallet `max_transactions_per_request` constraints.
+* **🛡️ Typed Error Taxonomy** — Clean exception classes (`UserRejectedError`, `TimeoutError`, etc.) replace untyped string errors.
 
 ---
 
-## 🏗️ Architecture
-
-```
-   ┌─────────────────────────────────────────────────────────────┐
-   │                   React Native JS Thread                    │
-   │           transact(async (wallet) => { ... })               │
-   └──────────────────────────────┬──────────────────────────────┘
-                                  │
-                                  │  TurboModule Async Native Bridge
-                                  ▼
-   ┌─────────────────────────────────────────────────────────────┐
-   │               Shaheen TurboModule                           │
-   │  - Handles React Native module lifecycle & promises         │
-   │  - Passes payloads to native background execution thread    │
-   └──────────────────────────────┬──────────────────────────────┘
-                                  │
-                                  │  Platform Background Thread
-                                  ▼
-   ┌─────────────────────────────────────────────────────────────┐
-   │               Platform Native Layer                         │
-   │  - Android: startActivityForResult (Package Auth Verification)│
-   │  - Native JNI / C-ABI bridge calling Rust core              │
-   └──────────────────────────────┬──────────────────────────────┘
-                                  │
-                                  │  C-ABI FFI Boundary
-                                  ▼
-   ┌─────────────────────────────────────────────────────────────┐
-   │                 shaheen_core (Rust Native)                  │
-   │  - Generates P-256 Association Keypair (Qa, da)             │
-   │  - Generates Ephemeral Dapp Keypair (Qd, dd)                │
-   │  - Signs Qd with da (ECDSA-SHA256, 64-byte P1363)           │
-   │  - Constructs exact 129-byte HELLO_REQ frame [Qd || Sa]     │
-   │  - Derives AES-128 key via HKDF-SHA256 (Salt = Qa)          │
-   │  - Enforces monotonic sequence counter with AAD validation  │
-   │  - Zeroizes all private keys and secrets on drop            │
-   └──────────────────────────────┬──────────────────────────────┘
-                                  │
-                                  │  Encrypted WebSocket (127.0.0.1:<port>/solana-wallet)
-                                  ▼
-   ┌─────────────────────────────────────────────────────────────┐
-   │               Android Wallet (Phantom / Solflare)           │
-   └─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 📦 Installation
+## Installation
 
 ```bash
-npm install shaheen
+npm install shaheen @solana/web3.js
 # or
-yarn add shaheen
+yarn add shaheen @solana/web3.js
+# or
+pnpm add shaheen @solana/web3.js
 ```
 
-### Peer Dependencies
-Ensure you have the standard Solana and React Native dependencies installed:
-```bash
-npm install @solana/web3.js
-```
+### Expo Setup
 
-### Expo Projects (Managed or Bare)
-Add `shaheen` to your `app.json` plugins:
+Add the plugin to your `app.json`:
+
 ```json
 {
   "expo": {
-    "name": "MyDapp",
-    "slug": "my-dapp",
-    "plugins": [
-      "shaheen"
-    ]
+    "plugins": ["shaheen"]
   }
 }
 ```
-*The plugin automatically injects the required `<queries>` intent filters into `AndroidManifest.xml` so Android 11+ (API 30+) devices can discover installed Solana wallets.*
 
-### Bare React Native Projects
+*The config plugin automatically injects required Android intent queries (`solana-wallet`) into `AndroidManifest.xml`.*
 
-#### Android Setup
-In your `android/app/src/main/AndroidManifest.xml`, add the wallet query filter inside `<manifest>`:
+### Bare React Native Setup
+
+Add the intent query to `android/app/src/main/AndroidManifest.xml`:
+
 ```xml
 <queries>
     <intent>
@@ -131,78 +73,105 @@ In your `android/app/src/main/AndroidManifest.xml`, add the wallet query filter 
 
 ---
 
-## 💻 API Reference & Usage
+## Quickstart
 
-### 1. Modern MWA 2.0 `transact()` Pattern (Recommended)
-
-The `transact()` helper executes all operations inside a single, continuous wallet session, avoiding multi-roundtrip app switching:
+All operations take place inside a single, stateful wallet session via `transact()`:
 
 ```typescript
-import { transact } from 'shaheen';
+import { transact, UserRejectedError, TimeoutError } from 'shaheen';
 import { Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-async function sendSolTransaction() {
-  const result = await transact(async (wallet) => {
-    // 1. Authorize connection with wallet (passes dApp identity to wallet prompt)
-    const auth = await wallet.authorize({
-      chain: 'solana:devnet',
-      identity: {
-        name: 'My Dapp',
-        uri: 'https://mydapp.com',
-        icon: 'favicon.ico',
-      },
+async function sendSol() {
+  try {
+    const result = await transact(async (wallet) => {
+      // 1. Authorize session
+      const auth = await wallet.authorize({
+        chain: 'solana:mainnet',
+        identity: {
+          name: 'My Dapp',
+          uri: 'https://mydapp.com',
+          icon: 'favicon.ico',
+        },
+      });
+
+      // 2. Build standard Solana transaction
+      const tx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: new PublicKey(auth.publicKey),
+          toPubkey: new PublicKey('RecipientAddressHere1111111111111111111111'),
+          lamports: 0.01 * LAMPORTS_PER_SOL,
+        })
+      );
+      tx.feePayer = new PublicKey(auth.publicKey);
+      tx.recentBlockhash = 'RecentBlockhashHere...';
+
+      // 3. Sign & send via wallet
+      const [signature] = await wallet.signAndSendTransactions([tx]);
+      return { address: auth.publicKey, signature };
     });
 
-    console.log('Connected account:', auth.publicKey); // Base58 Solana public key
-
-    // 2. Build a transaction
-    const tx = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: new PublicKey(auth.publicKey),
-        toPubkey: new PublicKey('37G1P7u13aJjTq5Z9sFzD36Pq7S9A4xY3vU1M4A5B'),
-        lamports: 0.01 * LAMPORTS_PER_SOL,
-      })
-    );
-    tx.feePayer = new PublicKey(auth.publicKey);
-    tx.recentBlockhash = 'EETubP5AKHgjQtcrkoWIbNuAnNuv2sub2bp79usJB2A-placeholder';
-
-    // 3. Sign and broadcast in the same session
-    const [signature] = await wallet.signAndSendTransactions([tx]);
-
-    return { publicKey: auth.publicKey, signature };
-  });
-
-  console.log('Transaction confirmed! Signature:', result.signature);
+    console.log('Transaction Confirmed:', result.signature);
+  } catch (error) {
+    if (error instanceof UserRejectedError) {
+      console.warn('User rejected approval');
+    } else if (error instanceof TimeoutError) {
+      console.error('Wallet connection timed out');
+    } else {
+      console.error('Operation failed:', error);
+    }
+  }
 }
 ```
 
-### 2. True Transaction Batching
+---
 
-Rather than sending transactions one-by-one in a sequential loop, Shaheen serializes the entire array and dispatches a single `sign_and_send_transactions` or `sign_transactions` RPC request over the encrypted MWA 2.0 session:
+## API Overview
+
+Inside `transact(async (wallet) => { ... })`, the `wallet` client provides:
+
+| Method | Description |
+| :--- | :--- |
+| `wallet.authorize(options)` | Authenticates session with wallet; returns public key, auth token, and accounts. |
+| `wallet.getCapabilities()` | Queries wallet constraints (`maxTransactionsPerRequest`, supported features). |
+| `wallet.signMessages(messages)` | Signs arbitrary strings or `Uint8Array` messages (Sign-In with Solana). |
+| `wallet.signAndSendTransactions(txs)` | Signs and broadcasts an array of transactions with capability-aware chunking. |
+| `wallet.deauthorize()` | Revokes authorization token and clears session secrets. |
+| `wallet.signTransactions(txs)` | *(Deprecated in MWA 2.0)* Signs transactions offline without broadcasting. |
+
+### Message Signing (Sign-In with Solana)
 
 ```typescript
 await transact(async (wallet) => {
   await wallet.authorize();
 
-  // Batched into a single MWA RPC request:
-  const signatures = await wallet.signAndSendTransactions([tx1, tx2, tx3]);
-  console.log('Batch signatures:', signatures);
+  const [signatureBytes] = await wallet.signMessages([
+    'Sign-In with Solana: ' + Date.now(),
+  ]);
 
-  // Or sign without sending:
-  const signedTransactions = await wallet.signTransactions([tx1, tx2]);
+  console.log('Signature:', signatureBytes);
 });
 ```
 
-### 3. Silent Re-Authorization (Token Persistence)
-
-To provide a seamless experience without showing the "Authorize" dialog every time, save the `authToken` (in `AsyncStorage` or `expo-secure-store`) and supply it on subsequent calls:
+### Capability Discovery & Smart Batching
 
 ```typescript
-// 1. First time: Save the token
+await transact(async (wallet) => {
+  // Query wallet limits
+  const caps = await wallet.getCapabilities();
+
+  // Shaheen automatically splits arrays larger than wallet limits into valid sub-batches
+  const signatures = await wallet.signAndSendTransactions([tx1, tx2, tx3, tx4, tx5]);
+});
+```
+
+### Silent Re-Authorization
+
+```typescript
+// Persist the token from first authorization
 const auth = await wallet.authorize({ chain: 'solana:mainnet' });
 await AsyncStorage.setItem('mwa_auth_token', auth.authToken);
 
-// 2. Subsequent runs: Pass token for silent authorization without user prompt
+// Re-authorize silently on future sessions without user prompt
 const savedToken = await AsyncStorage.getItem('mwa_auth_token');
 const silentAuth = await wallet.authorize({
   chain: 'solana:mainnet',
@@ -212,51 +181,53 @@ const silentAuth = await wallet.authorize({
 
 ---
 
-## 🔒 Security & Wire Specification Details
+## Error Handling
 
-Shaheen strictly enforces the formal Mobile Wallet Adapter specification:
+Shaheen provides a structured exception taxonomy:
 
-1. **Key Separation**:
-   - **Association Keypair $(Q_a, d_a)$**: A NIST P-256 EC keypair generated for the association URI. Only $Q_a$ is exposed in the URI as a Base64-URL-encoded token.
-   - **Ephemeral Dapp Keypair $(Q_d, d_d)$**: A separate ephemeral keypair generated fresh for each session handshake.
-2. **Deterministic 129-Byte `HELLO_REQ`**:
-   The initial unencrypted handshake frame sent over WebSocket is exactly 129 bytes:
-   $$\text{HELLO\_REQ} = Q_d (65 \text{ bytes SEC1 uncompressed}) \parallel S_a (64 \text{ bytes IEEE P1363})$$
-   where $S_a = \text{ECDSA-SHA256}_{d_a}(Q_d)$. Any frame size $\neq 129$ bytes is instantly rejected.
-3. **HKDF-SHA256 with $Q_a$ Salt**:
-   The shared secret $Z = \text{ECDH}(d_d, Q_w)$ is derived using HKDF-SHA256 with the 65-byte uncompressed association public key $Q_a$ as the salt, generating a 128-bit key ($L=16$) for AES-128-GCM.
-4. **Strict Monotonic Sequence Counter**:
-   Every encrypted message payload includes a 4-byte big-endian sequence counter ($1, 2, 3, \dots$) as Additional Authenticated Data (AAD). If a frame arrives out of sequence or repeats a previous counter, the session aborts immediately to prevent replay attacks.
-5. **Memory Jailing with Zeroize**:
-   All sensitive private scalar keys (`d_a`, `d_d`), shared secrets, and derived AES-GCM keys implement the `ZeroizeOnDrop` trait, securely wiping heap and stack memory when the session terminates.
+```typescript
+import {
+  ShaheenError,
+  UserRejectedError,
+  TimeoutError,
+  AuthorizationError,
+  WalletUnavailableError,
+  CapabilityError,
+  ProtocolError,
+  HandshakeError,
+} from 'shaheen';
+```
 
 ---
 
-## 🧪 Testing & Verification
+## Cryptographic Benchmarks
 
-Shaheen features comprehensive unit, integration, and fuzz testing:
+Measured on a release build of `shaheen_core` across 1,000 iterations (`cargo bench`):
 
-### Pure Rust Core & Cryptographic Verification
-```bash
-cd rust
-cargo test --all-targets
-```
-*Executes 24 automated tests including RFC 5869 HKDF standard vectors, corrupted IV/tag fuzzing, SEC1 public key tampering, sequence replay attacks, and end-to-end simulated wallet handshakes.*
+| Operation | Standard | Latency |
+| :--- | :--- | :--- |
+| **Association Keypair Gen** | NIST P-256 (`secp256r1`) | **~412 µs** |
+| **HELLO_REQ Signature** | ECDSA-SHA256 (IEEE P1363) | **~889 µs** |
+| **HELLO_REQ Verification** | ECDSA-SHA256 | **~801 µs** |
+| **Session Key Derivation** | P-256 ECDH + HKDF-SHA256 | **~411 µs** |
+| **Payload Encryption (300B)** | AES-128-GCM + 4B Seq AAD | **~1.3 µs** |
+| **Payload Decryption (300B)** | AES-128-GCM + 4B Seq AAD | **~1.2 µs** |
+| **Total Native Crypto Pipeline** | **KeyGen + ECDSA + ECDH + AES** | **~1.73 ms CPU** |
 
-### Microsecond Benchmarks
-```bash
-cd rust
-cargo bench
-```
-
-### TypeScript & React Native Tests
-```bash
-npm test
-```
-*Executes automated Jest tests covering `transact()` lifecycle, Android native intent dispatch, single-session transaction batching, dApp identity passing, and TurboModule mock verifications.*
+> *Note: Cryptographic latency reflects native computation. Real-world end-to-end latency includes Android intent switching and wallet user approval.*
 
 ---
 
-## 📄 License
+## Security Architecture
 
-MIT License. Copyright (c) 2026 Shaheen Contributors.
+* **Key Separation** — NIST P-256 Association Keypair $(Q_a, d_a)$ is isolated from the Ephemeral Handshake Keypair $(Q_d, d_d)$.
+* **Spec Wire Framing** — Strict 129-byte unencrypted `HELLO_REQ` wire format ($Q_d \parallel S_a$).
+* **Monotonic AAD Validation** — Every message enforces a strict, incremental 4-byte sequence counter as AES-GCM Additional Authenticated Data to protect against replay attacks.
+* **Zeroization** — Private scalar keys and AES session keys implement `ZeroizeOnDrop` to scrub memory when sessions terminate.
+* **Unwind Isolation** — FFI boundaries use Rust `catch_unwind` to prevent native panics from terminating the React Native host process.
+
+---
+
+## License
+
+[MIT](LICENSE) © Shaheen Contributors
