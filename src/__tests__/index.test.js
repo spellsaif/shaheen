@@ -55,16 +55,19 @@ jest.mock('../NativeShaheenSpec', () => ({
         connectAndAuthorizeSession: jest.fn(),
         signAndSend: jest.fn(),
         signTransactions: jest.fn(),
+        signMessages: jest.fn(),
+        getCapabilities: jest.fn(),
+        deauthorize: jest.fn(),
         closeSession: jest.fn(),
     },
 }));
-describe('Shaheen MWA 2.0 Native Protocol Engine Tests', () => {
+describe('Shaheen MWA 2.0 Native Protocol Engine Tests (v1.1.0)', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         react_native_1.Linking.openURL.mockResolvedValue(true);
         react_native_1.Platform.OS = 'ios';
     });
-    describe('MWA 2.0 transact() Core Lifecycle', () => {
+    describe('MWA 2.0 transact() Core Lifecycle & Backward Compatibility', () => {
         it('executes authorize with custom identity and signAndSend in a single session', async () => {
             NativeShaheenSpec_1.default.createSession.mockResolvedValue({
                 success: true,
@@ -119,11 +122,12 @@ describe('Shaheen MWA 2.0 Native Protocol Engine Tests', () => {
                 authToken: '',
                 publicKey: '',
                 accounts: [],
-                error: 'User rejected',
+                errorCode: 'USER_REJECTED',
+                error: 'User rejected the request',
             });
             await expect((0, index_1.transact)(async (wallet) => {
                 await wallet.authorize();
-            })).rejects.toThrow('User rejected');
+            })).rejects.toThrow(index_1.UserRejectedError);
             expect(NativeShaheenSpec_1.default.closeSession).toHaveBeenCalledWith('session-fail-1');
         });
         it('invokes launchWalletIntent on Android when available', async () => {
@@ -151,78 +155,171 @@ describe('Shaheen MWA 2.0 Native Protocol Engine Tests', () => {
             expect(react_native_1.Linking.openURL).not.toHaveBeenCalled();
         });
     });
-    describe('True Transaction Batching Tests', () => {
-        it('batches multiple transactions in a single signAndSend call', async () => {
+    describe('New MWA 2.0 Features in 1.1.0', () => {
+        it('queries wallet capabilities via getCapabilities()', async () => {
             NativeShaheenSpec_1.default.createSession.mockResolvedValue({
                 success: true,
-                sessionId: 'session-batch-1',
-                uri: 'solana-wallet://batch',
+                sessionId: 'session-caps-1',
+                uri: 'solana-wallet://caps',
                 port: 50000,
                 associationToken: 'tok',
             });
-            NativeShaheenSpec_1.default.connectAndAuthorizeSession.mockResolvedValue({
+            NativeShaheenSpec_1.default.getCapabilities.mockResolvedValue({
                 success: true,
-                authToken: 'auth-batch',
-                publicKey: '11111111111111111111111111111111',
-                accounts: [],
+                maxTransactionsPerRequest: 5,
+                maxMessagesPerRequest: 10,
+                supportedTransactionVersions: ['legacy', '0'],
+                features: ['solana:signMessages'],
                 error: '',
             });
-            NativeShaheenSpec_1.default.signAndSend.mockResolvedValue({
-                success: true,
-                signatures: ['sig_batch_1', 'sig_batch_2', 'sig_batch_3'],
-                signature: 'sig_batch_1',
-                error: '',
+            const caps = await (0, index_1.transact)(async (wallet) => {
+                return await wallet.getCapabilities();
             });
-            const tx1 = new Uint8Array([1, 2]);
-            const tx2 = new Uint8Array([3, 4]);
-            const tx3 = new Uint8Array([5, 6]);
-            const sigs = await (0, index_1.transact)(async (wallet) => {
-                await wallet.authorize();
-                return await wallet.signAndSendTransactions([tx1, tx2, tx3]);
-            });
-            expect(sigs).toEqual(['sig_batch_1', 'sig_batch_2', 'sig_batch_3']);
-            // Must be called EXACTLY ONCE with all 3 transactions batched in JSON
-            expect(NativeShaheenSpec_1.default.signAndSend).toHaveBeenCalledTimes(1);
-            const [calledSessionId, calledPayloadJson] = NativeShaheenSpec_1.default.signAndSend.mock.calls[0];
-            expect(calledSessionId).toBe('session-batch-1');
-            const parsed = JSON.parse(calledPayloadJson);
-            expect(Array.isArray(parsed)).toBe(true);
-            expect(parsed).toHaveLength(3);
+            expect(caps.maxTransactionsPerRequest).toBe(5);
+            expect(caps.maxMessagesPerRequest).toBe(10);
+            expect(caps.supportedTransactionVersions).toContain('0');
+            expect(NativeShaheenSpec_1.default.getCapabilities).toHaveBeenCalledWith('session-caps-1');
         });
-        it('batches multiple transactions in a single signTransactions call', async () => {
+        it('signs arbitrary messages via signMessages()', async () => {
             NativeShaheenSpec_1.default.createSession.mockResolvedValue({
                 success: true,
-                sessionId: 'session-batch-2',
-                uri: 'solana-wallet://batch',
+                sessionId: 'session-msg-1',
+                uri: 'solana-wallet://msg',
                 port: 50000,
                 associationToken: 'tok',
             });
             NativeShaheenSpec_1.default.connectAndAuthorizeSession.mockResolvedValue({
                 success: true,
-                authToken: 'auth-batch',
+                authToken: 'auth-msg',
                 publicKey: '11111111111111111111111111111111',
-                accounts: [],
+                accounts: [{ address: 'dGVzdF9hZGRyZXNzXzMyYnl0ZXNfbG9uZw==' }],
                 error: '',
             });
-            // Base64 for [10, 20] is 'ChQ=' and [30, 40] is 'Higg'
-            NativeShaheenSpec_1.default.signTransactions.mockResolvedValue({
+            // Base64 of [42, 43] is 'Kis='
+            NativeShaheenSpec_1.default.signMessages.mockResolvedValue({
                 success: true,
-                signedTxBase64: 'ChQ=',
-                signedTxsBase64: ['ChQ=', 'Higg'],
+                signedPayloads: ['Kis='],
+                signedPayload: 'Kis=',
                 error: '',
             });
-            const tx1 = new Uint8Array([1, 2]);
-            const tx2 = new Uint8Array([3, 4]);
             const signed = await (0, index_1.transact)(async (wallet) => {
                 await wallet.authorize();
-                return await wallet.signTransactions({ transactions: [tx1, tx2] });
+                return await wallet.signMessages(['Sign in to Shaheen']);
             });
-            expect(signed).toHaveLength(2);
-            expect(NativeShaheenSpec_1.default.signTransactions).toHaveBeenCalledTimes(1);
-            const [calledSessionId, calledPayloadJson] = NativeShaheenSpec_1.default.signTransactions.mock.calls[0];
-            expect(calledSessionId).toBe('session-batch-2');
-            const parsed = JSON.parse(calledPayloadJson);
-            expect(parsed).toHaveLength(2);
+            expect(signed).toHaveLength(1);
+            expect(signed[0]).toEqual(new Uint8Array([42, 43]));
+            expect(NativeShaheenSpec_1.default.signMessages).toHaveBeenCalledWith('session-msg-1', JSON.stringify(['dGVzdF9hZGRyZXNzXzMyYnl0ZXNfbG9uZw==']), expect.any(String));
+        });
+        it('deauthorizes session via deauthorize()', async () => {
+            NativeShaheenSpec_1.default.createSession.mockResolvedValue({
+                success: true,
+                sessionId: 'session-deauth-1',
+                uri: 'solana-wallet://deauth',
+                port: 50000,
+                associationToken: 'tok',
+            });
+            NativeShaheenSpec_1.default.deauthorize.mockResolvedValue({
+                success: true,
+                error: '',
+            });
+            await (0, index_1.transact)(async (wallet) => {
+                await wallet.deauthorize();
+            });
+            expect(NativeShaheenSpec_1.default.deauthorize).toHaveBeenCalledWith('session-deauth-1');
+        });
+    });
+    describe('Capability-Aware Batching Tests', () => {
+        it('automatically chunks transactions according to maxTransactionsPerRequest', async () => {
+            NativeShaheenSpec_1.default.createSession.mockResolvedValue({
+                success: true,
+                sessionId: 'session-batch-chunk',
+                uri: 'solana-wallet://batch',
+                port: 50000,
+                associationToken: 'tok',
+            });
+            NativeShaheenSpec_1.default.getCapabilities.mockResolvedValue({
+                success: true,
+                maxTransactionsPerRequest: 2, // Wallet limit is 2 per request!
+                maxMessagesPerRequest: 5,
+                supportedTransactionVersions: ['legacy', '0'],
+                features: [],
+                error: '',
+            });
+            NativeShaheenSpec_1.default.signAndSend
+                .mockResolvedValueOnce({
+                success: true,
+                signatures: ['sig_1', 'sig_2'],
+                signature: 'sig_1',
+                error: '',
+            })
+                .mockResolvedValueOnce({
+                success: true,
+                signatures: ['sig_3', 'sig_4'],
+                signature: 'sig_3',
+                error: '',
+            })
+                .mockResolvedValueOnce({
+                success: true,
+                signatures: ['sig_5'],
+                signature: 'sig_5',
+                error: '',
+            });
+            const txs = [
+                new Uint8Array([1]),
+                new Uint8Array([2]),
+                new Uint8Array([3]),
+                new Uint8Array([4]),
+                new Uint8Array([5]),
+            ];
+            const sigs = await (0, index_1.transact)(async (wallet) => {
+                await wallet.getCapabilities();
+                return await wallet.signAndSendTransactions(txs);
+            });
+            // 5 transactions with limit=2 must be sent in 3 calls: [2, 2, 1]
+            expect(sigs).toEqual(['sig_1', 'sig_2', 'sig_3', 'sig_4', 'sig_5']);
+            expect(NativeShaheenSpec_1.default.signAndSend).toHaveBeenCalledTimes(3);
+            const firstCallParsed = JSON.parse(NativeShaheenSpec_1.default.signAndSend.mock.calls[0][1]);
+            expect(firstCallParsed).toHaveLength(2);
+            const secondCallParsed = JSON.parse(NativeShaheenSpec_1.default.signAndSend.mock.calls[1][1]);
+            expect(secondCallParsed).toHaveLength(2);
+            const thirdCallParsed = JSON.parse(NativeShaheenSpec_1.default.signAndSend.mock.calls[2][1]);
+            expect(thirdCallParsed).toHaveLength(1);
+        });
+    });
+    describe('Typed Error Taxonomy Tests', () => {
+        it('throws UserRejectedError when wallet indicates rejection', async () => {
+            NativeShaheenSpec_1.default.createSession.mockResolvedValue({
+                success: true,
+                sessionId: 'session-err-reject',
+                uri: 'solana-wallet://err',
+                port: 50000,
+                associationToken: 'tok',
+            });
+            NativeShaheenSpec_1.default.connectAndAuthorizeSession.mockResolvedValue({
+                success: false,
+                errorCode: 'USER_REJECTED',
+                error: 'User declined transaction request',
+            });
+            await expect((0, index_1.transact)(async (wallet) => {
+                await wallet.authorize();
+            })).rejects.toThrow(index_1.UserRejectedError);
+        });
+        it('throws TimeoutError when connection times out', async () => {
+            NativeShaheenSpec_1.default.createSession.mockResolvedValue({
+                success: true,
+                sessionId: 'session-err-timeout',
+                uri: 'solana-wallet://err',
+                port: 50000,
+                associationToken: 'tok',
+            });
+            NativeShaheenSpec_1.default.connectAndAuthorizeSession.mockResolvedValue({
+                success: false,
+                errorCode: 'TIMEOUT_ERROR',
+                error: 'Failed to connect to wallet socket within 15s',
+            });
+            await expect((0, index_1.transact)(async (wallet) => {
+                await wallet.authorize();
+            })).rejects.toThrow(index_1.TimeoutError);
         });
     });
 });

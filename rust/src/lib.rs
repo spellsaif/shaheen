@@ -16,6 +16,27 @@ use base64::Engine;
 use crate::rpc::{DappIdentity, SendOptions};
 use crate::session::global_session_manager;
 
+use crate::error::ShaheenError;
+
+pub fn error_to_code(err: &ShaheenError) -> &'static str {
+    match err {
+        ShaheenError::CryptoError(_) => "CRYPTO_ERROR",
+        ShaheenError::HandshakeError(_) => "HANDSHAKE_ERROR",
+        ShaheenError::SequenceMismatch { .. } => "SEQUENCE_MISMATCH",
+        ShaheenError::TransportError(_) => "TRANSPORT_ERROR",
+        ShaheenError::ProtocolError(_) => "PROTOCOL_ERROR",
+        ShaheenError::RpcError { code, .. } => {
+            if *code == -32603 { "INTERNAL_ERROR" }
+            else if *code == 4001 || *code == -32000 { "USER_REJECTED" }
+            else { "RPC_ERROR" }
+        },
+        ShaheenError::SessionError(_) => "SESSION_ERROR",
+        ShaheenError::InvalidAddress(_) => "INVALID_ADDRESS",
+        ShaheenError::SerializationError(_) => "SERIALIZATION_ERROR",
+        ShaheenError::Timeout(_) => "TIMEOUT_ERROR",
+    }
+}
+
 fn to_c_string(json_val: serde_json::Value) -> *mut c_char {
     let s = json_val.to_string();
     CString::new(s).unwrap_or_default().into_raw()
@@ -24,6 +45,7 @@ fn to_c_string(json_val: serde_json::Value) -> *mut c_char {
 fn error_to_c_string(err: &str) -> *mut c_char {
     let json = serde_json::json!({
         "success": false,
+        "errorCode": "UNKNOWN_ERROR",
         "error": err
     });
     to_c_string(json)
@@ -50,6 +72,7 @@ pub unsafe extern "C" fn rust_mwa_create_session(port: u16) -> *mut c_char {
             }
             Err(e) => serde_json::json!({
                 "success": false,
+                "errorCode": error_to_code(&e),
                 "error": e.to_string()
             }),
         }
@@ -73,18 +96,18 @@ pub unsafe extern "C" fn rust_mwa_connect_and_authorize(
 ) -> *mut c_char {
     let result = catch_unwind(|| {
         if c_session_id.is_null() {
-            return serde_json::json!({"success": false, "error": "Null session ID"});
+            return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Null session ID"});
         }
 
         let session_id = match CStr::from_ptr(c_session_id).to_str() {
             Ok(s) => s,
-            Err(_) => return serde_json::json!({"success": false, "error": "Invalid UTF-8 in session ID"}),
+            Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in session ID"}),
         };
 
         let ws_url = if !c_ws_url.is_null() {
             match CStr::from_ptr(c_ws_url).to_str() {
                 Ok(s) => s.to_string(),
-                Err(_) => return serde_json::json!({"success": false, "error": "Invalid UTF-8 in URL"}),
+                Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in URL"}),
             }
         } else {
             "".to_string()
@@ -162,6 +185,7 @@ pub unsafe extern "C" fn rust_mwa_connect_and_authorize(
                 "success": false,
                 "publicKey": "",
                 "authToken": "",
+                "errorCode": error_to_code(&e),
                 "error": e.to_string()
             }),
         }
@@ -180,29 +204,29 @@ pub unsafe extern "C" fn rust_mwa_sign_and_send(
 ) -> *mut c_char {
     let result = catch_unwind(|| {
         if c_session_id.is_null() || c_tx_payloads_json.is_null() {
-            return serde_json::json!({"success": false, "error": "Invalid arguments"});
+            return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid arguments"});
         }
 
         let session_id = match CStr::from_ptr(c_session_id).to_str() {
             Ok(s) => s,
-            Err(_) => return serde_json::json!({"success": false, "error": "Invalid UTF-8 in session ID"}),
+            Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in session ID"}),
         };
 
         let payloads_str = match CStr::from_ptr(c_tx_payloads_json).to_str() {
             Ok(s) => s,
-            Err(_) => return serde_json::json!({"success": false, "error": "Invalid UTF-8 in transaction payloads"}),
+            Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in transaction payloads"}),
         };
 
         let b64_payloads: Vec<String> = match serde_json::from_str(payloads_str) {
             Ok(v) => v,
-            Err(e) => return serde_json::json!({"success": false, "error": format!("Invalid JSON payloads: {}", e)}),
+            Err(e) => return serde_json::json!({"success": false, "errorCode": "SERIALIZATION_ERROR", "error": format!("Invalid JSON payloads: {}", e)}),
         };
 
         let mut decoded_txs = Vec::with_capacity(b64_payloads.len());
         for p in &b64_payloads {
             match BASE64.decode(p) {
                 Ok(b) => decoded_txs.push(b),
-                Err(e) => return serde_json::json!({"success": false, "error": format!("Base64 decode failed: {}", e)}),
+                Err(e) => return serde_json::json!({"success": false, "errorCode": "SERIALIZATION_ERROR", "error": format!("Base64 decode failed: {}", e)}),
             }
         }
 
@@ -224,6 +248,7 @@ pub unsafe extern "C" fn rust_mwa_sign_and_send(
                 "success": false,
                 "signatures": [],
                 "signature": "",
+                "errorCode": error_to_code(&e),
                 "error": e.to_string()
             }),
         }
@@ -242,29 +267,29 @@ pub unsafe extern "C" fn rust_mwa_sign_transactions_session(
 ) -> *mut c_char {
     let result = catch_unwind(|| {
         if c_session_id.is_null() || c_tx_payloads_json.is_null() {
-            return serde_json::json!({"success": false, "error": "Invalid arguments"});
+            return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid arguments"});
         }
 
         let session_id = match CStr::from_ptr(c_session_id).to_str() {
             Ok(s) => s,
-            Err(_) => return serde_json::json!({"success": false, "error": "Invalid UTF-8 in session ID"}),
+            Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in session ID"}),
         };
 
         let payloads_str = match CStr::from_ptr(c_tx_payloads_json).to_str() {
             Ok(s) => s,
-            Err(_) => return serde_json::json!({"success": false, "error": "Invalid UTF-8 in transaction payloads"}),
+            Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in transaction payloads"}),
         };
 
         let b64_payloads: Vec<String> = match serde_json::from_str(payloads_str) {
             Ok(v) => v,
-            Err(e) => return serde_json::json!({"success": false, "error": format!("Invalid JSON payloads: {}", e)}),
+            Err(e) => return serde_json::json!({"success": false, "errorCode": "SERIALIZATION_ERROR", "error": format!("Invalid JSON payloads: {}", e)}),
         };
 
         let mut decoded_txs = Vec::with_capacity(b64_payloads.len());
         for p in &b64_payloads {
             match BASE64.decode(p) {
                 Ok(b) => decoded_txs.push(b),
-                Err(e) => return serde_json::json!({"success": false, "error": format!("Base64 decode failed: {}", e)}),
+                Err(e) => return serde_json::json!({"success": false, "errorCode": "SERIALIZATION_ERROR", "error": format!("Base64 decode failed: {}", e)}),
             }
         }
 
@@ -293,6 +318,7 @@ pub unsafe extern "C" fn rust_mwa_sign_transactions_session(
                 "success": false,
                 "signedTxBase64": "",
                 "signedTxsBase64": [],
+                "errorCode": error_to_code(&e),
                 "error": e.to_string()
             }),
         }
@@ -301,6 +327,156 @@ pub unsafe extern "C" fn rust_mwa_sign_transactions_session(
     match result {
         Ok(json) => to_c_string(json),
         Err(_) => error_to_c_string("Panic occurred during sign transactions"),
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_mwa_sign_messages(
+    c_session_id: *const c_char,
+    c_addresses_json: *const c_char,
+    c_payloads_json: *const c_char,
+) -> *mut c_char {
+    let result = catch_unwind(|| {
+        if c_session_id.is_null() || c_addresses_json.is_null() || c_payloads_json.is_null() {
+            return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid arguments"});
+        }
+
+        let session_id = match CStr::from_ptr(c_session_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in session ID"}),
+        };
+
+        let addresses_str = match CStr::from_ptr(c_addresses_json).to_str() {
+            Ok(s) => s,
+            Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in addresses"}),
+        };
+
+        let payloads_str = match CStr::from_ptr(c_payloads_json).to_str() {
+            Ok(s) => s,
+            Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in payloads"}),
+        };
+
+        let addresses: Vec<String> = match serde_json::from_str(addresses_str) {
+            Ok(v) => v,
+            Err(e) => return serde_json::json!({"success": false, "errorCode": "SERIALIZATION_ERROR", "error": format!("Invalid JSON addresses: {}", e)}),
+        };
+
+        let b64_payloads: Vec<String> = match serde_json::from_str(payloads_str) {
+            Ok(v) => v,
+            Err(e) => return serde_json::json!({"success": false, "errorCode": "SERIALIZATION_ERROR", "error": format!("Invalid JSON payloads: {}", e)}),
+        };
+
+        let mut decoded_msgs = Vec::with_capacity(b64_payloads.len());
+        for p in &b64_payloads {
+            match BASE64.decode(p) {
+                Ok(b) => decoded_msgs.push(b),
+                Err(e) => return serde_json::json!({"success": false, "errorCode": "SERIALIZATION_ERROR", "error": format!("Base64 decode failed: {}", e)}),
+            }
+        }
+
+        let msg_slices: Vec<&[u8]> = decoded_msgs.iter().map(|b| b.as_slice()).collect();
+        let manager = global_session_manager();
+
+        let sign_res = manager.with_session(session_id, |session| {
+            session.sign_messages(addresses, msg_slices)
+        });
+
+        match sign_res {
+            Ok(signed_payloads) => serde_json::json!({
+                "success": true,
+                "signedPayloads": signed_payloads,
+                "signedPayload": signed_payloads.first().cloned().unwrap_or_default(),
+                "error": ""
+            }),
+            Err(e) => serde_json::json!({
+                "success": false,
+                "signedPayloads": [],
+                "signedPayload": "",
+                "errorCode": error_to_code(&e),
+                "error": e.to_string()
+            }),
+        }
+    });
+
+    match result {
+        Ok(json) => to_c_string(json),
+        Err(_) => error_to_c_string("Panic occurred during sign messages"),
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_mwa_get_capabilities(c_session_id: *const c_char) -> *mut c_char {
+    let result = catch_unwind(|| {
+        if c_session_id.is_null() {
+            return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Null session ID"});
+        }
+
+        let session_id = match CStr::from_ptr(c_session_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in session ID"}),
+        };
+
+        let manager = global_session_manager();
+        let cap_res = manager.with_session(session_id, |session| {
+            session.get_capabilities()
+        });
+
+        match cap_res {
+            Ok(caps) => serde_json::json!({
+                "success": true,
+                "maxTransactionsPerRequest": caps.max_transactions_per_request,
+                "maxMessagesPerRequest": caps.max_messages_per_request,
+                "supportedTransactionVersions": caps.supported_transaction_versions,
+                "features": caps.features,
+                "error": ""
+            }),
+            Err(e) => serde_json::json!({
+                "success": false,
+                "errorCode": error_to_code(&e),
+                "error": e.to_string()
+            }),
+        }
+    });
+
+    match result {
+        Ok(json) => to_c_string(json),
+        Err(_) => error_to_c_string("Panic occurred while getting capabilities"),
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_mwa_deauthorize(c_session_id: *const c_char) -> *mut c_char {
+    let result = catch_unwind(|| {
+        if c_session_id.is_null() {
+            return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Null session ID"});
+        }
+
+        let session_id = match CStr::from_ptr(c_session_id).to_str() {
+            Ok(s) => s,
+            Err(_) => return serde_json::json!({"success": false, "errorCode": "INVALID_ARGUMENTS", "error": "Invalid UTF-8 in session ID"}),
+        };
+
+        let manager = global_session_manager();
+        let deauth_res = manager.with_session(session_id, |session| {
+            session.deauthorize()
+        });
+
+        match deauth_res {
+            Ok(()) => serde_json::json!({
+                "success": true,
+                "error": ""
+            }),
+            Err(e) => serde_json::json!({
+                "success": false,
+                "errorCode": error_to_code(&e),
+                "error": e.to_string()
+            }),
+        }
+    });
+
+    match result {
+        Ok(json) => to_c_string(json),
+        Err(_) => error_to_c_string("Panic occurred while deauthorizing"),
     }
 }
 

@@ -21,6 +21,13 @@ extern "C" {
         const char* session_id,
         const char* tx_payloads_json
     );
+    char* rust_mwa_sign_messages(
+        const char* session_id,
+        const char* addresses_json,
+        const char* payloads_json
+    );
+    char* rust_mwa_get_capabilities(const char* session_id);
+    char* rust_mwa_deauthorize(const char* session_id);
     void rust_mwa_close_session(const char* session_id);
     void rust_free_string(char* s);
 }
@@ -123,6 +130,66 @@ Java_com_shaheen_ShaheenModule_nativeSignTransactionsSession(
     );
 
     if (tx_payloads_json_str) env->ReleaseStringUTFChars(tx_payloads_json, tx_payloads_json_str);
+    if (session_id_str) env->ReleaseStringUTFChars(session_id, session_id_str);
+
+    jstring result = env->NewStringUTF(nativeRes);
+    rust_free_string(nativeRes);
+    return result;
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_shaheen_ShaheenModule_nativeSignMessages(
+    JNIEnv *env,
+    jobject thiz,
+    jstring session_id,
+    jstring addresses_json,
+    jstring payloads_json
+) {
+    const char *session_id_str = session_id ? env->GetStringUTFChars(session_id, nullptr) : nullptr;
+    const char *addresses_json_str = addresses_json ? env->GetStringUTFChars(addresses_json, nullptr) : nullptr;
+    const char *payloads_json_str = payloads_json ? env->GetStringUTFChars(payloads_json, nullptr) : nullptr;
+
+    char *nativeRes = rust_mwa_sign_messages(
+        session_id_str,
+        addresses_json_str,
+        payloads_json_str
+    );
+
+    if (payloads_json_str) env->ReleaseStringUTFChars(payloads_json, payloads_json_str);
+    if (addresses_json_str) env->ReleaseStringUTFChars(addresses_json, addresses_json_str);
+    if (session_id_str) env->ReleaseStringUTFChars(session_id, session_id_str);
+
+    jstring result = env->NewStringUTF(nativeRes);
+    rust_free_string(nativeRes);
+    return result;
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_shaheen_ShaheenModule_nativeGetCapabilities(
+    JNIEnv *env,
+    jobject thiz,
+    jstring session_id
+) {
+    const char *session_id_str = session_id ? env->GetStringUTFChars(session_id, nullptr) : nullptr;
+    char *nativeRes = rust_mwa_get_capabilities(session_id_str);
+    if (session_id_str) env->ReleaseStringUTFChars(session_id, session_id_str);
+
+    jstring result = env->NewStringUTF(nativeRes);
+    rust_free_string(nativeRes);
+    return result;
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_shaheen_ShaheenModule_nativeDeauthorize(
+    JNIEnv *env,
+    jobject thiz,
+    jstring session_id
+) {
+    const char *session_id_str = session_id ? env->GetStringUTFChars(session_id, nullptr) : nullptr;
+    char *nativeRes = rust_mwa_deauthorize(session_id_str);
     if (session_id_str) env->ReleaseStringUTFChars(session_id, session_id_str);
 
     jstring result = env->NewStringUTF(nativeRes);

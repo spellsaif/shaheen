@@ -5,6 +5,7 @@ export interface ShaheenSessionInfo {
     uri: string;
     port: number;
     associationToken: string;
+    errorCode?: string;
     error?: string;
 }
 export interface ShaheenAccount {
@@ -17,18 +18,42 @@ export interface ShaheenAuthorizeSessionResult {
     authToken: string;
     publicKey: string;
     accounts: ShaheenAccount[];
+    errorCode?: string;
     error: string;
 }
 export interface ShaheenSignAndSendResult {
     success: boolean;
     signatures: string[];
     signature: string;
+    errorCode?: string;
     error: string;
 }
 export interface ShaheenSignTransactionsResult {
     success: boolean;
     signedTxBase64: string;
     signedTxsBase64: string[];
+    errorCode?: string;
+    error: string;
+}
+export interface ShaheenSignMessagesResult {
+    success: boolean;
+    signedPayloads: string[];
+    signedPayload: string;
+    errorCode?: string;
+    error: string;
+}
+export interface ShaheenGetCapabilitiesResult {
+    success: boolean;
+    maxTransactionsPerRequest?: number;
+    maxMessagesPerRequest?: number;
+    supportedTransactionVersions: string[];
+    features: string[];
+    errorCode?: string;
+    error: string;
+}
+export interface ShaheenDeauthorizeResult {
+    success: boolean;
+    errorCode?: string;
     error: string;
 }
 export interface Spec extends TurboModule {
@@ -36,7 +61,13 @@ export interface Spec extends TurboModule {
     launchWalletIntent?(uri: string): Promise<boolean>;
     connectAndAuthorizeSession(sessionId: string, wsUrl: string, chain: string, authToken: string, identityName: string, identityUri: string, identityIcon: string): Promise<ShaheenAuthorizeSessionResult>;
     signAndSend(sessionId: string, txPayloadsJson: string): Promise<ShaheenSignAndSendResult>;
+    /**
+     * @deprecated Deprecated in MWA 2.0. Wallets may reject this method. Use signAndSend instead.
+     */
     signTransactions(sessionId: string, txPayloadsJson: string): Promise<ShaheenSignTransactionsResult>;
+    signMessages(sessionId: string, addressesJson: string, payloadsJson: string): Promise<ShaheenSignMessagesResult>;
+    getCapabilities(sessionId: string): Promise<ShaheenGetCapabilitiesResult>;
+    deauthorize(sessionId: string): Promise<ShaheenDeauthorizeResult>;
     closeSession(sessionId: string): Promise<void>;
 }
 declare const _default: Spec;

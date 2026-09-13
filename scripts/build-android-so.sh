@@ -11,7 +11,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 RUST_DIR="${ROOT_DIR}/rust"
 JNILIBS_DIR="${ROOT_DIR}/android/src/main/jniLibs"
 
-echo "=== 🦅 Shaheen Android Native Cross-Compilation ==="
+echo "=== Shaheen Android Native Cross-Compilation ==="
 
 # Check for cargo-ndk
 if ! command -v cargo-ndk &> /dev/null; then
