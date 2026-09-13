@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/shaheen"><img src="https://img.shields.io/badge/npm-v1.1.0-black?logo=npm" alt="npm version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-black.svg" alt="license" /></a>
-  <a href="https://reactnative.dev"><img src="https://img.shields.io/badge/React_Native-TurboModule-blue" alt="React Native" /></a>
+  <a href="https://reactnative.dev"><img src="https://img.shields.io/badge/React_Native-Native_Module-blue" alt="React Native" /></a>
   <a href="https://expo.dev"><img src="https://img.shields.io/badge/Expo-Config_Plugin-black" alt="Expo" /></a>
   <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/Core-Rust_2021-orange" alt="Rust" /></a>
 </p>
@@ -25,11 +25,115 @@ Traditional Solana mobile integration on React Native requires heavy JavaScript 
 **Shaheen moves the entire MWA 2.0 protocol into compiled native Rust:**
 
 * **⚡ Native Performance** — P-256 key exchange, HKDF-SHA256 derivation, and AES-128-GCM execute in native code off the JavaScript thread.
-* **🚀 Zero Polyfills** — Works out of the box with `@solana/web3.js` without configuring shim files or Metro transformers.
-* **📱 TurboModule Architecture** — Designed for React Native's New Architecture (Bridgeless / JSI) with background thread pooling.
-* **🔒 Full MWA 2.0 Feature Parity** — Supports `authorize`, `getCapabilities`, `signMessages` (Sign-In with Solana), `signAndSendTransactions`, and `deauthorize`.
+* **🚀 No MWA Crypto Polyfills** — Shaheen's MWA cryptography and transport run natively, so Shaheen itself does not require JavaScript crypto polyfills or Metro crypto shims.
+* **📱 Native Android Architecture** — MWA transport and cryptography execute off the JavaScript thread in a Rust native core, with asynchronous Android execution.
+* **🔒 MWA 2.0 dApp API** — Supports authorization, capability discovery, message signing, transaction signing/sending, and deauthorization.
 * **🧠 Intelligent Batching** — Automatically chunks transactions to conform to wallet `max_transactions_per_request` constraints.
 * **🛡️ Typed Error Taxonomy** — Clean exception classes (`UserRejectedError`, `TimeoutError`, etc.) replace untyped string errors.
+
+---
+
+## Scope
+
+### What Shaheen Is
+
+Shaheen is a native Android implementation of the dApp side of the Solana Mobile Wallet Adapter (MWA) 2.0 protocol for React Native and Expo.
+
+It provides:
+* MWA wallet association
+* MWA 2.0 handshake and encrypted transport
+* Wallet authorization
+* Capability discovery
+* Message signing
+* Transaction signing
+* Transaction signing and sending
+* Deauthorization
+* Session management
+
+### What Shaheen Is Not
+
+Shaheen is not:
+* A Solana RPC client
+* A Solana transaction-building library
+* A wallet
+* A replacement for `@solana/web3.js`
+* A replacement for the MWA protocol
+
+Your application can continue using `@solana/web3.js` or another Solana library for transaction construction and RPC while using Shaheen for MWA wallet communication.
+
+---
+
+## Compatibility
+
+Shaheen is a dApp-side implementation of the Solana Mobile Wallet Adapter (MWA) 2.0 protocol.
+
+It is designed to communicate with wallets that implement the MWA protocol. Wallet compatibility therefore depends on the wallet supporting MWA; Shaheen does not require a separate Shaheen-specific integration in the wallet.
+
+Shaheen can be used alongside Solana transaction and RPC libraries such as `@solana/web3.js`.
+
+```text
+@solana/web3.js
+       │
+       │ Build / serialize transaction
+       ▼
+   Uint8Array
+       │
+       ▼
+     Shaheen
+       │
+       │ MWA 2.0
+       ▼
+MWA-compatible wallet
+```
+
+Shaheen is not intended to replace Solana RPC or transaction libraries. It provides the dApp-side wallet communication layer.
+
+---
+
+## Architecture
+
+Shaheen separates the React Native API from the MWA protocol engine.
+
+```text
+React Native application
+        │
+        ▼
+   Shaheen JS API
+        │
+        ▼
+ Android native layer
+        │
+        │ JNI / native calls
+        ▼
+     Rust core
+        │
+        ├── Association
+        ├── MWA 2.0 handshake
+        ├── ECDH + HKDF
+        ├── AES-128-GCM
+        ├── Sequence validation
+        ├── JSON-RPC
+        └── WebSocket transport
+        │
+        ▼
+ MWA-compatible wallet
+```
+
+The Rust core owns the MWA protocol, cryptographic operations, session state, sequencing, and transport. The Android layer provides the React Native and Android platform integration.
+
+Shaheen follows the MWA 2.0 wire protocol. Its internal implementation language and React Native integration do not change the protocol spoken to wallets.
+
+### Data Handling
+
+Shaheen accepts standard Solana transaction/message data and keeps the MWA wire serialization inside the native protocol engine.
+
+MWA still uses its specified JSON-RPC and base64 payload representation on the wallet-facing wire. Shaheen's native implementation is designed to avoid unnecessary JavaScript-side cryptographic and protocol processing.
+
+### React Native Architecture
+
+Shaheen 1.1 uses an Android native module with a Rust protocol core. MWA cryptography, session management, protocol framing, and transport execute natively rather than in JavaScript.
+
+The React Native integration is intentionally kept thin. A future release may further reduce JavaScript/native serialization overhead through the React Native New Architecture and a more direct binary data path without changing the MWA 2.0 wire protocol or the public Shaheen API.
 
 ---
 
@@ -212,9 +316,9 @@ Measured on a release build of `shaheen_core` across 1,000 iterations (`cargo be
 | **Session Key Derivation** | P-256 ECDH + HKDF-SHA256 | **~411 µs** |
 | **Payload Encryption (300B)** | AES-128-GCM + 4B Seq AAD | **~1.3 µs** |
 | **Payload Decryption (300B)** | AES-128-GCM + 4B Seq AAD | **~1.2 µs** |
-| **Total Native Crypto Pipeline** | **KeyGen + ECDSA + ECDH + AES** | **~1.73 ms CPU** |
+| **Native Cryptographic Pipeline** | **Key generation + ECDSA + ECDH + AES** | **~1.73 ms CPU** |
 
-> *Note: Cryptographic latency reflects native computation. Real-world end-to-end latency includes Android intent switching and wallet user approval.*
+> *These measurements cover native cryptographic computation only. They do not represent end-to-end wallet transaction latency, which also includes React Native/native invocation, WebSocket transport, Android activity switching, wallet processing, user interaction, and Solana network/RPC latency.*
 
 ---
 
@@ -223,8 +327,8 @@ Measured on a release build of `shaheen_core` across 1,000 iterations (`cargo be
 * **Key Separation** — NIST P-256 Association Keypair $(Q_a, d_a)$ is isolated from the Ephemeral Handshake Keypair $(Q_d, d_d)$.
 * **Spec Wire Framing** — Strict 129-byte unencrypted `HELLO_REQ` wire format ($Q_d \parallel S_a$).
 * **Monotonic AAD Validation** — Every message enforces a strict, incremental 4-byte sequence counter as AES-GCM Additional Authenticated Data to protect against replay attacks.
-* **Zeroization** — Private scalar keys and AES session keys implement `ZeroizeOnDrop` to scrub memory when sessions terminate.
-* **Unwind Isolation** — FFI boundaries use Rust `catch_unwind` to prevent native panics from terminating the React Native host process.
+* **Zeroization** — Sensitive private-key and session-key structures use `ZeroizeOnDrop` to reduce the lifetime of cryptographic material in memory.
+* **Unwind Isolation** — Rust FFI entry points use `catch_unwind` to prevent Rust panics from unwinding across the FFI boundary.
 
 ---
 
