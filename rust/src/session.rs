@@ -160,9 +160,26 @@ impl MwaSession {
             )));
         }
 
+        // Adapt parameters dynamically based on negotiated protocol version:
+        // Legacy MWA 1.0 wallets (Phantom) require `cluster` without the conflicting `chain` field.
+        // Modern MWA 2.0 wallets (Solflare) expect `chain`.
+        let is_legacy = self.negotiated_version.is_none();
+
+        let (final_chain, final_cluster) = if is_legacy {
+            let c = chain.as_deref().map(|c| match c {
+                "solana:devnet" => "devnet".to_string(),
+                "solana:testnet" => "testnet".to_string(),
+                _ => "mainnet-beta".to_string(),
+            });
+            (None, c)
+        } else {
+            (chain, None)
+        };
+
         let params = AuthorizeParams {
             identity,
-            chain,
+            chain: final_chain,
+            cluster: final_cluster,
             auth_token,
             ..Default::default()
         };

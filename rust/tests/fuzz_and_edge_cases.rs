@@ -91,14 +91,14 @@ fn test_sequence_tracker_adversarial_patterns() {
 
 #[test]
 fn test_caip2_chain_identifiers_and_silent_auth() {
-    // Test Devnet
+    // Test Devnet legacy payload (Phantom): only cluster sent, chain is omitted
     let devnet_params = AuthorizeParams {
         identity: DappIdentity {
             name: Some("Devnet Dapp".to_string()),
             uri: None,
             icon: None,
         },
-        chain: Some("solana:devnet".to_string()),
+        cluster: Some("devnet".to_string()),
         auth_token: Some("existing_token_xyz".to_string()),
         ..Default::default()
     };
@@ -107,18 +107,20 @@ fn test_caip2_chain_identifiers_and_silent_auth() {
     let bytes = devnet_req.to_bytes().unwrap();
     let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
 
-    assert_eq!(json["params"]["chain"], "solana:devnet");
+    assert_eq!(json["params"]["cluster"], "devnet");
+    assert!(json["params"].get("chain").is_none());
     assert_eq!(json["params"]["auth_token"], "existing_token_xyz");
 
-    // Test Testnet
-    let testnet_params = AuthorizeParams {
+    // Test Modern MWA 2.0 payload (Solflare): only chain sent, cluster is omitted
+    let modern_params = AuthorizeParams {
         identity: DappIdentity::default(),
-        chain: Some("solana:testnet".to_string()),
+        chain: Some("solana:devnet".to_string()),
         ..Default::default()
     };
-    let testnet_req = JsonRpcRequest::new(2, "authorize", testnet_params);
-    let json_testnet: serde_json::Value = serde_json::from_slice(&testnet_req.to_bytes().unwrap()).unwrap();
-    assert_eq!(json_testnet["params"]["chain"], "solana:testnet");
+    let modern_req = JsonRpcRequest::new(2, "authorize", modern_params);
+    let json_modern: serde_json::Value = serde_json::from_slice(&modern_req.to_bytes().unwrap()).unwrap();
+    assert_eq!(json_modern["params"]["chain"], "solana:devnet");
+    assert!(json_modern["params"].get("cluster").is_none());
 }
 
 #[test]
