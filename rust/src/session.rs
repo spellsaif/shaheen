@@ -166,11 +166,18 @@ impl MwaSession {
         let is_legacy = self.negotiated_version.is_none();
 
         let (final_chain, final_cluster) = if is_legacy {
-            let c = chain.as_deref().map(|c| match c {
-                "solana:devnet" => "devnet".to_string(),
-                "solana:testnet" => "testnet".to_string(),
-                _ => "mainnet-beta".to_string(),
-            });
+            let c = match chain.as_deref() {
+                None => None,
+                Some("solana:mainnet") | Some("mainnet-beta") => Some("mainnet-beta".to_string()),
+                Some("solana:devnet") | Some("devnet") => Some("devnet".to_string()),
+                Some("solana:testnet") | Some("testnet") => Some("testnet".to_string()),
+                Some(other) => {
+                    return Err(ShaheenError::ProtocolError(format!(
+                        "Unsupported legacy Solana cluster/chain: {}",
+                        other
+                    )));
+                }
+            };
             (None, c)
         } else {
             (chain, None)

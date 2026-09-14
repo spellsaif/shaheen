@@ -173,7 +173,13 @@ pub unsafe extern "C" fn rust_mwa_connect_and_authorize(
                     .and_then(|acc| acc.to_base58_address().ok())
                     .or_else(|| {
                         auth.public_key.as_ref().and_then(|pk_b64| {
-                            BASE64.decode(pk_b64).ok().map(|bytes| bs58::encode(bytes).into_string())
+                            BASE64.decode(pk_b64).ok().and_then(|bytes| {
+                                if bytes.len() == 32 {
+                                    Some(bs58::encode(bytes).into_string())
+                                } else {
+                                    None
+                                }
+                            })
                         })
                     })
                     .unwrap_or_default();

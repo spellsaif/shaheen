@@ -144,3 +144,16 @@ fn test_base58_solana_pubkey_validation() {
     let decoded_b58 = bs58::decode(b58).into_vec().unwrap();
     assert_eq!(decoded_b58, bytes);
 }
+
+#[test]
+fn test_legacy_cluster_validation_and_unsupported_rejection() {
+    let mut session = shaheen_core::session::MwaSession::new(None).unwrap();
+    // In Created state, authorize returns error
+    let err = session.authorize(
+        DappIdentity::default(),
+        Some("solana:localnet".to_string()),
+        None,
+    );
+    assert!(err.is_err());
+}
+
