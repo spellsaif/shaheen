@@ -1,6 +1,6 @@
 {
   "name": "shaheen",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Android-first, polyfill-free Solana Mobile Wallet Adapter (MWA 2.0) native protocol engine using Rust",
   "main": "src/index.js",
   "module": "src/index.js",

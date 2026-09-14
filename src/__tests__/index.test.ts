@@ -190,6 +190,39 @@ describe('Shaheen MWA 2.0 Native Protocol Engine Tests (v1.1.0)', () => {
       );
       expect(Linking.openURL).not.toHaveBeenCalled();
     });
+
+    it('maps legacy cluster parameter to chain in authorize()', async () => {
+      (ShaheenModule.createSession as jest.Mock).mockResolvedValue({
+        success: true,
+        sessionId: 'session-cluster-1',
+        uri: 'solana-wallet://devnet',
+        port: 50000,
+        associationToken: 'tok',
+      });
+
+      (ShaheenModule.connectAndAuthorizeSession as jest.Mock).mockResolvedValue({
+        success: true,
+        authToken: 'auth-cluster',
+        publicKey: '11111111111111111111111111111111',
+        accounts: [],
+        error: '',
+      });
+      (ShaheenModule.closeSession as jest.Mock).mockResolvedValue(undefined);
+
+      await transact(async (wallet) => {
+        await wallet.authorize({ cluster: 'devnet' });
+      });
+
+      expect(ShaheenModule.connectAndAuthorizeSession).toHaveBeenCalledWith(
+        'session-cluster-1',
+        '',
+        'solana:devnet',
+        '',
+        '',
+        '',
+        ''
+      );
+    });
   });
 
   describe('New MWA 2.0 Features in 1.1.0', () => {

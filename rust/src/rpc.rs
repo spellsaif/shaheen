@@ -77,6 +77,8 @@ pub struct AuthorizeParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chain: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub cluster: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub features: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub addresses: Option<Vec<String>>,
@@ -130,7 +132,10 @@ impl AuthorizedAccount {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AuthorizeResult {
     pub auth_token: String,
+    #[serde(default)]
     pub accounts: Vec<AuthorizedAccount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub public_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wallet_uri_base: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -229,6 +234,7 @@ mod tests {
                 name: Some("Shaheen App".to_string()),
             },
             chain: Some("solana:mainnet".to_string()),
+            cluster: Some("mainnet-beta".to_string()),
             ..Default::default()
         };
 
@@ -238,6 +244,7 @@ mod tests {
 
         assert!(json_str.contains("\"method\":\"authorize\""));
         assert!(json_str.contains("\"chain\":\"solana:mainnet\""));
+        assert!(json_str.contains("\"cluster\":\"mainnet-beta\""));
         assert!(json_str.contains("\"name\":\"Shaheen App\""));
     }
 

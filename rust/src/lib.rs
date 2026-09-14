@@ -161,7 +161,7 @@ pub unsafe extern "C" fn rust_mwa_connect_and_authorize(
                 ws_url
             };
 
-            session.connect_and_handshake(&target_url, 15)?;
+            session.connect_and_handshake(&target_url, 60)?;
             session.authorize(identity, chain, auth_token)
         });
 
@@ -171,6 +171,17 @@ pub unsafe extern "C" fn rust_mwa_connect_and_authorize(
                     .accounts
                     .first()
                     .and_then(|acc| acc.to_base58_address().ok())
+                    .or_else(|| {
+                        auth.public_key.as_ref().and_then(|pk_b64| {
+                            BASE64.decode(pk_b64).ok().and_then(|bytes| {
+                                if bytes.len() == 32 {
+                                    Some(bs58::encode(bytes).into_string())
+                                } else {
+                                    None
+                                }
+                            })
+                        })
+                    })
                     .unwrap_or_default();
 
                 serde_json::json!({
