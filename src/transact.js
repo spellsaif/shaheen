@@ -263,7 +263,13 @@ async function transact(callback, options) {
         let cachedCapabilities = null;
         const wallet = {
             async authorize(opts) {
-                const chain = opts?.chain || 'solana:mainnet';
+                let chain = opts?.chain;
+                if (!chain && opts?.cluster) {
+                    chain = (opts.cluster === 'mainnet-beta' ? 'solana:mainnet' : `solana:${opts.cluster}`);
+                }
+                if (!chain) {
+                    chain = 'solana:mainnet';
+                }
                 const identityName = opts?.identity?.name || '';
                 const identityUri = opts?.identity?.uri || '';
                 const identityIcon = opts?.identity?.icon || '';

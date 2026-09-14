@@ -25,8 +25,13 @@ export declare class ProtocolError extends ShaheenError {
     constructor(message?: string);
 }
 export type SolanaChain = 'solana:mainnet' | 'solana:devnet' | 'solana:testnet';
+export type SolanaCluster = 'mainnet-beta' | 'devnet' | 'testnet';
 export interface AuthorizeOptions {
     chain?: SolanaChain;
+    /**
+     * @deprecated In MWA 2.0, prefer `chain`. Shaheen auto-derives and sends `cluster` alongside `chain` for compatibility with legacy wallet parsers (such as Phantom).
+     */
+    cluster?: SolanaCluster;
     authToken?: string;
     identity?: {
         name?: string;

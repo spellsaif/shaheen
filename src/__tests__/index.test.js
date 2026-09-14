@@ -154,6 +154,27 @@ describe('Shaheen MWA 2.0 Native Protocol Engine Tests (v1.1.0)', () => {
             expect(NativeShaheenSpec_1.default.launchWalletIntent).toHaveBeenCalledWith('solana-wallet:/v1/associate/local?association=xyz&port=50000&v=2');
             expect(react_native_1.Linking.openURL).not.toHaveBeenCalled();
         });
+        it('maps legacy cluster parameter to chain in authorize()', async () => {
+            NativeShaheenSpec_1.default.createSession.mockResolvedValue({
+                success: true,
+                sessionId: 'session-cluster-1',
+                uri: 'solana-wallet://devnet',
+                port: 50000,
+                associationToken: 'tok',
+            });
+            NativeShaheenSpec_1.default.connectAndAuthorizeSession.mockResolvedValue({
+                success: true,
+                authToken: 'auth-cluster',
+                publicKey: '11111111111111111111111111111111',
+                accounts: [],
+                error: '',
+            });
+            NativeShaheenSpec_1.default.closeSession.mockResolvedValue(undefined);
+            await (0, index_1.transact)(async (wallet) => {
+                await wallet.authorize({ cluster: 'devnet' });
+            });
+            expect(NativeShaheenSpec_1.default.connectAndAuthorizeSession).toHaveBeenCalledWith('session-cluster-1', '', 'solana:devnet', '', '', '', '');
+        });
     });
     describe('New MWA 2.0 Features in 1.1.0', () => {
         it('queries wallet capabilities via getCapabilities()', async () => {

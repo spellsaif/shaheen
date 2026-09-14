@@ -187,9 +187,14 @@ function stringToUint8Array(str: string): Uint8Array {
 // ---------------------------------------------------------------------------
 
 export type SolanaChain = 'solana:mainnet' | 'solana:devnet' | 'solana:testnet';
+export type SolanaCluster = 'mainnet-beta' | 'devnet' | 'testnet';
 
 export interface AuthorizeOptions {
   chain?: SolanaChain;
+  /**
+   * @deprecated In MWA 2.0, prefer `chain`. Shaheen auto-derives and sends `cluster` alongside `chain` for compatibility with legacy wallet parsers (such as Phantom).
+   */
+  cluster?: SolanaCluster;
   authToken?: string;
   identity?: {
     name?: string;
@@ -348,7 +353,13 @@ export async function transact<T>(
 
     const wallet: TransactWallet = {
       async authorize(opts) {
-        const chain = opts?.chain || 'solana:mainnet';
+        let chain = opts?.chain;
+        if (!chain && opts?.cluster) {
+          chain = (opts.cluster === 'mainnet-beta' ? 'solana:mainnet' : `solana:${opts.cluster}`) as SolanaChain;
+        }
+        if (!chain) {
+          chain = 'solana:mainnet';
+        }
         const identityName = opts?.identity?.name || '';
         const identityUri = opts?.identity?.uri || '';
         const identityIcon = opts?.identity?.icon || '';
